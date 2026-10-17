@@ -12,6 +12,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from crr.capability_api import router as capability_router
 from crr.demand_model import Demand
 from crr.demand_schemas import DemandInput, DemandPatch
 from crr.domain.demand import Demand as DomainDemand
@@ -563,7 +564,5 @@ def patch_demand(
     response.headers["ETag"] = f'"version-{item.version}"'
     return _envelope(request, _data(item))
 
-
-from crr.capability_api import router as capability_router
 
 router.include_router(capability_router)
