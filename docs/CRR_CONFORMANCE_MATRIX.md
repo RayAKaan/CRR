@@ -1,7 +1,7 @@
 # CRR Conformance and Cross-Document Matrix
 
 **Protocol:** Computational Resource Routing (CRR)  
-**Specification target:** 0.1.1  
+**Specification target:** 0.1.1 with normative clarification 0.1.2
 **Purpose:** Provide a reviewer-facing matrix showing where each major CRR concern is defined and what a conforming implementation must preserve.
 
 > This is a navigation and audit artifact. Normative semantics remain in the authoritative documents identified below.
@@ -42,7 +42,7 @@
 | Physical primitive | `ResourceState` is the authoritative physical-state primitive. |
 | Resource identity | `Resource` provides stable identity and lineage context. |
 | Historical truth | Material physical history is never silently destroyed. |
-| Quantity | Exact semantics; no authoritative binary floating point. |
+| Quantity | Exact semantics; no authoritative binary floating point; zero may represent valid historical state. |
 | Units | Ambiguous/invalid conversions are rejected. |
 | Conservation | Applicable transformations reconcile inputs, outputs, and declared loss/residual within explicit tolerance. |
 | Lineage | Split/merge/transform operations preserve traceable ancestry. |

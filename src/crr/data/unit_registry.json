@@ -1,0 +1,8 @@
+{
+  "version": "CRR-UNITS-0.1",
+  "units": [
+    {"code": "g", "dimension": "MASS", "to_base_factor": "1"},
+    {"code": "kg", "dimension": "MASS", "to_base_factor": "1000"},
+    {"code": "t", "dimension": "MASS", "to_base_factor": "1000000"}
+  ]
+}

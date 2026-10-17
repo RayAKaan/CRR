@@ -1,7 +1,7 @@
 # CRR Specification Index
 
 **Project:** Computational Resource Routing (CRR)  
-**Specification version:** 0.1.1  
+**Specification version:** 0.1.1, with normative clarification 0.1.2
 **Status:** Proposed protocol/category specification  
 **Repository:** `RayAKaan/CRR`
 
@@ -380,7 +380,7 @@ Use the following order when resolving overlap:
 | How do external systems interact? | `CRR_API_CONTRACT.md` |
 | How is the reference system assembled? | `SYSTEM_DESIGN.md` |
 | How does data move through the system? | `CRR_DATA_FLOW_ARCHITECTURE.md` |
-| How are cross-document ambiguities resolved? | `CRR_NORMATIVE_AMENDMENT_0.1.1.md` |
+| How are cross-document ambiguities resolved? | `CRR_NORMATIVE_AMENDMENT_0.1.1.md` and `CRR_NORMATIVE_AMENDMENT_0.1.2.md` |
 | How should a new reader navigate the specification? | `CRR_SPECIFICATION_INDEX.md` |
 
 If an explanatory document conflicts with a normative rule, the normative rule wins.
@@ -482,6 +482,7 @@ For implementation work, read in this order:
 7. `CRR_DATA_FLOW_ARCHITECTURE.md`;
 8. `SYSTEM_DESIGN.md`;
 9. `CRR_NORMATIVE_AMENDMENT_0.1.1.md`.
+10. `CRR_NORMATIVE_AMENDMENT_0.1.2.md` for zero quantity and lifecycle separation.
 
 Then use the repository README for project-level orientation.
 

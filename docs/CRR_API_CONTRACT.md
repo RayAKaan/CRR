@@ -544,7 +544,6 @@ Conceptual object:
       "unit": "t"
     },
     "location_id": "loc_123",
-    "status": "ACTIVE",
     "effective_at": "2026-10-17T12:00:00Z",
     "provenance": {}
   }

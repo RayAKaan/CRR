@@ -278,7 +278,9 @@ Conceptual fields include:
 - evidence references;
 - predecessor state references;
 - balance/lineage information;
-- lifecycle status.
+- lifecycle status only where a separate governed lifecycle is defined; it is not a universal ResourceState state machine.
+
+See `CRR_NORMATIVE_AMENDMENT_0.1.2.md` for the separation of physical state, availability, execution, and epistemic dimensions.
 
 ## 9.1 State semantics
 

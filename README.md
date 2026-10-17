@@ -5,7 +5,7 @@
 CRR is a proposed implementation-independent protocol/category for representing, discovering, routing, transforming, trading, executing, and verifying physical-resource flows across organizational and industrial boundaries.
 
 **Status:** Proposed protocol / architecture foundation  
-**Specification:** 0.1.1  
+**Specification:** 0.1.1 with normative clarification 0.1.2
 **Repository:** `RayAKaan/CRR`
 
 > **Important:** CRR is a project-defined technical/category specification. It is **not** being presented as an existing global industry standard.
@@ -24,7 +24,8 @@ If you are new to CRR, read the repository in this order:
 6. [`docs/CRR_API_CONTRACT.md`](./docs/CRR_API_CONTRACT.md) — external API semantics.
 7. [`docs/CRR_DATA_FLOW_ARCHITECTURE.md`](./docs/CRR_DATA_FLOW_ARCHITECTURE.md) — end-to-end data movement.
 8. [`docs/SYSTEM_DESIGN.md`](./docs/SYSTEM_DESIGN.md) — reference implementation architecture.
-9. [`docs/CRR_NORMATIVE_AMENDMENT_0.1.1.md`](./docs/CRR_NORMATIVE_AMENDMENT_0.1.1.md) — explicit consistency clarifications that apply across the 0.1 specification set.
+9. [`docs/CRR_NORMATIVE_AMENDMENT_0.1.1.md`](./docs/CRR_NORMATIVE_AMENDMENT_0.1.1.md) — cross-document consistency clarifications.
+10. [`docs/CRR_NORMATIVE_AMENDMENT_0.1.2.md`](./docs/CRR_NORMATIVE_AMENDMENT_0.1.2.md) — zero-quantity history and ResourceState lifecycle clarification.
 
 The index is the best entry point for an engineer, researcher, reviewer, or independent implementation team.
 
@@ -371,7 +372,7 @@ Evidence supports a claim about physical reality. Evidence does not become the p
 13. **Human approval is initially required for material physical/commercial actions.**
 14. **Third parties can implement the protocol independently.**
 
-The explicit consistency rules are in [`CRR_NORMATIVE_AMENDMENT_0.1.1.md`](./docs/CRR_NORMATIVE_AMENDMENT_0.1.1.md).
+The cross-document consistency rules are in [`CRR_NORMATIVE_AMENDMENT_0.1.1.md`](./docs/CRR_NORMATIVE_AMENDMENT_0.1.1.md), with zero-quantity and lifecycle clarifications in [`CRR_NORMATIVE_AMENDMENT_0.1.2.md`](./docs/CRR_NORMATIVE_AMENDMENT_0.1.2.md).
 
 ---
 
@@ -901,6 +902,7 @@ The protocol should remain useful even when these participants are supplied by i
 | [`CRR_DATA_FLOW_ARCHITECTURE.md`](./docs/CRR_DATA_FLOW_ARCHITECTURE.md) | End-to-end data movement from physical reality to verified outcome. |
 | [`SYSTEM_DESIGN.md`](./docs/SYSTEM_DESIGN.md) | Reference architecture, storage, services, deployment, security, testing, scaling, MVP. |
 | [`CRR_NORMATIVE_AMENDMENT_0.1.1.md`](./docs/CRR_NORMATIVE_AMENDMENT_0.1.1.md) | Cross-document normative clarifications and strict consistency rules. |
+| [`CRR_NORMATIVE_AMENDMENT_0.1.2.md`](./docs/CRR_NORMATIVE_AMENDMENT_0.1.2.md) | Zero-quantity historical states and ResourceState lifecycle separation. |
 
 ### Authority order
 
@@ -911,15 +913,15 @@ The protocol should remain useful even when these participants are supplied by i
 5. API — `CRR_API_CONTRACT.md`
 6. Reference architecture — `SYSTEM_DESIGN.md`
 7. Data flow — `CRR_DATA_FLOW_ARCHITECTURE.md`
-8. Cross-document clarifications — `CRR_NORMATIVE_AMENDMENT_0.1.1.md` where it explicitly applies
+8. Cross-document clarifications — `CRR_NORMATIVE_AMENDMENT_0.1.1.md` and `CRR_NORMATIVE_AMENDMENT_0.1.2.md` where they explicitly apply
 
 ---
 
 # 26. Repository status
 
-This repository currently represents the **protocol and architecture specification foundation**.
+This repository contains the **protocol and architecture specification foundation** plus an in-progress Phase 1 executable reference foundation. Phase 1 currently covers a narrow organization/actor/location/resource/ResourceState API. It does not yet implement routing, commercial execution, evidence verification, or a complete end-to-end transaction.
 
-It should therefore be judged on:
+The specification remains authoritative for implementation semantics. The current code should be judged on:
 
 - semantic completeness;
 - internal consistency;
@@ -955,3 +957,19 @@ CRR is successful when an independent implementation team can read this reposito
 - what conformance means.
 
 That is the standard this repository is intended to meet.
+
+# Phase 1 Reference Foundation
+
+The first executable increment covers tenant-scoped organizations and actors, locations, resources, immutable ResourceState history, authenticated REST access, optimistic concurrency, idempotency, and a transactional event outbox. It does not yet implement route discovery or commercial execution.
+
+From the repository root, install the package and start the API:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+crr-bootstrap --organization-id org_factory_a --organization-name "Factory A" --actor-id act_admin --actor-name "Factory A Admin"
+python -m uvicorn crr.api:app --reload
+```
+
+The bootstrap command applies Alembic migrations, creates the initial organization administrator, stores only a hash of the generated API key, and prints the secret once. Set `CRR_DATABASE_URL` before starting either command to select PostgreSQL or another configured SQLAlchemy database.
