@@ -193,12 +193,15 @@ def test_transaction_rollback_preserves_canonical_state_when_outbox_conflicts() 
 
     with factory() as session:
         assert session.get(Resource, resource_id) is None
-        assert session.scalar(
-            select(IdempotencyRecord).where(
-                IdempotencyRecord.organization_id == "org_a",
-                IdempotencyRecord.idempotency_key == "rollback-resource",
+        assert (
+            session.scalar(
+                select(IdempotencyRecord).where(
+                    IdempotencyRecord.organization_id == "org_a",
+                    IdempotencyRecord.idempotency_key == "rollback-resource",
+                )
             )
-        ) is None
+            is None
+        )
 
 
 def test_database_history_guards_reject_direct_transition_and_outbox_mutation() -> None:
