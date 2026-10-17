@@ -1,28 +1,45 @@
 # CRR — Computational Resource Routing
 
 > **A proposed computational infrastructure layer for the physical economy.**
->
-> CRR is designed to allow physical resources to be represented, discovered, routed, transformed, traded, executed, and verified across organizational and industrial boundaries.
 
-**Status:** Protocol / architecture foundation  
-**Version:** 0.1  
+CRR is a proposed implementation-independent protocol/category for representing, discovering, routing, transforming, trading, executing, and verifying physical-resource flows across organizational and industrial boundaries.
+
+**Status:** Proposed protocol / architecture foundation  
+**Specification:** 0.1.1  
 **Repository:** `RayAKaan/CRR`
 
-> **Terminology note:** CRR / Computational Resource Routing is a proposed technical/category name used by this project. It is not being presented as an already-established global industry standard.
+> **Important:** CRR is a project-defined technical/category specification. It is **not** being presented as an existing global industry standard.
 
 ---
 
-# 1. What CRR is
+## 1. Start here
+
+If you are new to CRR, read the repository in this order:
+
+1. [`docs/CRR_SPECIFICATION_INDEX.md`](./docs/CRR_SPECIFICATION_INDEX.md) — complete orientation and terminology map.
+2. [`docs/CRR_PROTOCOL_SPEC.md`](./docs/CRR_PROTOCOL_SPEC.md) — normative protocol semantics.
+3. [`docs/CRR_DOMAIN_MODEL.md`](./docs/CRR_DOMAIN_MODEL.md) — canonical objects and relationships.
+4. [`docs/CRR_VALIDATION_AND_INVARIANTS.md`](./docs/CRR_VALIDATION_AND_INVARIANTS.md) — validation and blocking rules.
+5. [`docs/CRR_DECISION_AND_ROUTING_SPEC.md`](./docs/CRR_DECISION_AND_ROUTING_SPEC.md) — routing and decision engine.
+6. [`docs/CRR_API_CONTRACT.md`](./docs/CRR_API_CONTRACT.md) — external API semantics.
+7. [`docs/CRR_DATA_FLOW_ARCHITECTURE.md`](./docs/CRR_DATA_FLOW_ARCHITECTURE.md) — end-to-end data movement.
+8. [`docs/SYSTEM_DESIGN.md`](./docs/SYSTEM_DESIGN.md) — reference implementation architecture.
+9. [`docs/CRR_NORMATIVE_AMENDMENT_0.1.1.md`](./docs/CRR_NORMATIVE_AMENDMENT_0.1.1.md) — explicit consistency clarifications that apply across the 0.1 specification set.
+
+The index is the best entry point for an engineer, researcher, reviewer, or independent implementation team.
+
+---
+
+# 2. What CRR is
 
 Most digital systems are designed around information. The physical economy is constrained by a different class of realities:
 
 - quantities;
 - units;
-- material state;
-- quality;
-- contamination;
+- physical state;
+- quality and contamination;
 - location;
-- ownership/custody;
+- ownership and custody;
 - processing capability;
 - transformation rules;
 - capacity;
@@ -31,13 +48,12 @@ Most digital systems are designed around information. The physical economy is co
 - regulation;
 - safety;
 - economics;
-- evidence.
+- evidence;
+- actual execution.
 
-CRR proposes a computational infrastructure layer that makes these constraints representable, discoverable, routable, executable, and verifiable.
+CRR proposes an infrastructure layer that makes these constraints representable, discoverable, routable, executable, and verifiable.
 
-The fundamental object is not **waste**.
-
-It is **ResourceState**.
+The fundamental physical primitive is **ResourceState**.
 
 ```text
 RESOURCE IDENTITY
@@ -49,7 +65,7 @@ TRANSFORMATION
 NEW RESOURCE STATE
 ```
 
-A resource can therefore move through a chain such as:
+A resource can move through a chain such as:
 
 ```text
 Aluminum
@@ -67,9 +83,9 @@ Billet
 Component
 ```
 
-The system does not merely ask:
+CRR therefore does not merely ask:
 
-> “Who wants this waste?”
+> Who wants this material?
 
 It asks:
 
@@ -77,19 +93,21 @@ It asks:
 
 ---
 
-# 2. The CRR thesis
+# 3. The CRR thesis
 
-The proposed category can be described as **Resource Routing Infrastructure**.
+A useful category description is **Resource Routing Infrastructure**.
 
-A technical description is:
+A more technical description is:
 
 > **A computational infrastructure layer for industrial resource circulation, extending industrial symbiosis from manually discovered relationships into continuously computed, executable resource flows.**
 
-The long-term system is intended to become infrastructure on top of which participants and third-party applications can discover, route, transform, trade, execute, and verify physical resource flows.
+The long-term goal is infrastructure on top of which participants and third-party applications can discover, route, transform, trade, execute, and verify physical resource flows.
+
+CRR is not required to own the physical resources. Its initial role is to provide the computational protocol and coordination infrastructure around them.
 
 ---
 
-# 3. The complete CRR operating loop
+# 4. The complete operating loop
 
 ```text
 PHYSICAL REALITY
@@ -140,50 +158,13 @@ NETWORK KNOWLEDGE
        ↺
 ```
 
-The central design decision is that CRR does **not** stop at a match, listing, recommendation, or route.
-
-The intended loop closes only when the physical outcome is executed and sufficiently verified.
-
----
-
-# 4. Why ResourceState is the primitive
-
-A `Resource` is a stable identity and lineage container.
-
-A `ResourceState` represents the physical condition of that resource at a particular point or interval in time.
-
-```text
-Resource R1
-   │
-   ├── State S1: mixed scrap
-   ├── State S2: sorted scrap
-   ├── State S3: clean scrap
-   ├── State S4: molten material
-   └── State S5: billet
-```
-
-Each state can contain:
-
-- quantity;
-- unit;
-- material classification;
-- physical properties;
-- quality;
-- location;
-- ownership/custody;
-- availability;
-- effective time;
-- provenance;
-- evidence;
-- predecessor lineage.
-
-Material physical changes must not silently overwrite history.
+The loop deliberately does **not** end at discovery, matching, recommendation, or route generation. The intended loop closes when the physical outcome has been executed and sufficiently verified.
 
 ---
 
 # 5. What CRR is not
 
-CRR should not initially be reduced to:
+CRR should not be reduced to:
 
 - a waste marketplace;
 - a recycling directory;
@@ -198,57 +179,57 @@ CRR should not initially be reduced to:
 - an autonomous physical-robotics system;
 - a giant global ontology built before network density exists.
 
-Those can become applications, services, or ecosystem participants around the protocol. They are not the protocol itself.
+Those can become applications, integrations, services, or ecosystem participants around CRR. They are not the protocol itself.
 
 ---
 
 # 6. Core architecture
 
 ```text
-┌──────────────────────────────────────────────────────────────┐
-│                       PHYSICAL ECONOMY                       │
-│ factories · warehouses · processors · buyers · logistics     │
-└──────────────────────────────┬───────────────────────────────┘
-                               ↓
-┌──────────────────────────────────────────────────────────────┐
-│ RESOURCE REALITY                                             │
-│ Organization · Actor · Location · Resource · ResourceState   │
-│ quantity · quality · ownership · provenance                   │
-└──────────────────────────────┬───────────────────────────────┘
-                               ↓
-┌──────────────────────────────────────────────────────────────┐
-│ MARKET + CAPABILITY REALITY                                  │
-│ Demand · Capability · Transformation                         │
-└──────────────────────────────┬───────────────────────────────┘
-                               ↓
-┌──────────────────────────────────────────────────────────────┐
-│ RESOURCE / TRANSFORMATION GRAPH                              │
-└──────────────────────────────┬───────────────────────────────┘
-                               ↓
-┌──────────────────────────────────────────────────────────────┐
-│ ROUTING ENGINE                                               │
-│ hard constraints → feasibility → economics → optimization   │
-└──────────────────────────────┬───────────────────────────────┘
-                               ↓
-                 ┌─────────────┴─────────────┐
-                 ↓                           ↓
-          DETERMINISTIC ENGINE              JEV
-                 └─────────────┬─────────────┘
-                               ↓
+┌─────────────────────────────────────────────────────────────┐
+│                      PHYSICAL ECONOMY                       │
+│ factories · warehouses · processors · buyers · logistics    │
+└─────────────────────────────┬───────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│ RESOURCE REALITY                                            │
+│ Organization · Actor · Location · Resource · ResourceState  │
+│ quantity · quality · ownership/custody · provenance         │
+└─────────────────────────────┬───────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│ MARKET + CAPABILITY REALITY                                 │
+│ Demand · Capability · Transformation                        │
+└─────────────────────────────┬───────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│ RESOURCE / TRANSFORMATION GRAPH                             │
+└─────────────────────────────┬───────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│ ROUTING ENGINE                                              │
+│ hard constraints → feasibility → economics → optimization  │
+└─────────────────────────────┬───────────────────────────────┘
+                              ↓
+                 ┌────────────┴────────────┐
+                 ↓                         ↓
+          DETERMINISTIC ENGINE            JEV
+                 └────────────┬────────────┘
+                              ↓
                        DECISION ENGINE
-                               ↓
-                         OPPORTUNITY
-                               ↓
+                              ↓
+                        OPPORTUNITY
+                              ↓
                      OFFER / AGREEMENT
-                               ↓
-                         TRANSACTION
-                               ↓
-                          EXECUTION
-                               ↓
+                              ↓
+                        TRANSACTION
+                              ↓
+                         EXECUTION
+                              ↓
                        EVIDENCE / TRUST
-                               ↓
-                       VERIFIED OUTCOME
-                               ↓
+                              ↓
+                      VERIFIED OUTCOME
+                              ↓
                        NETWORK KNOWLEDGE
 ```
 
@@ -292,7 +273,7 @@ Transformation consumes ResourceState specifications
 Transformation produces ResourceState specifications
 
 Route starts from ResourceState
-Route terminates at Demand / target ResourceState
+Route terminates at Demand or target ResourceState
 
 Decision evaluates candidate routes/options
 Opportunity proposes Route
@@ -304,49 +285,217 @@ Evidence supports/verifies claims
 Event records protocol changes
 ```
 
----
-
-# 8. Non-negotiable architectural rules
-
-## 8.1 Physical reality is authoritative
-
-A recommendation, embedding, graph projection, cache, score, or AI response cannot become more authoritative than the physical facts it represents.
-
-## 8.2 ResourceState is the physical primitive
-
-The system routes states, not vague resource labels.
-
-## 8.3 Historical physical truth is preserved
-
-Material changes create new states, events, or equivalent auditable history.
-
-## 8.4 Hard constraints are deterministic
-
-Quantity, units, capacity, physical compatibility, timing, authorization, safety, and applicable regulatory blockers cannot be overridden by AI.
-
-## 8.5 Jev is advisory
-
-Jev can reason over a bounded candidate set. It cannot create facts, authorize itself, fabricate evidence, or execute transactions.
-
-## 8.6 Route ≠ execution
-
-A route is a plan. Execution records what actually happened. Evidence establishes what can be verified.
-
-## 8.7 Claimed ≠ verified
-
-CRR explicitly separates planned, actual, claimed, and verified information.
-
-## 8.8 Derived data is disposable
-
-Graphs, embeddings, indexes, rankings, and caches are rebuildable projections.
+The complete semantics are defined in [`CRR_DOMAIN_MODEL.md`](./docs/CRR_DOMAIN_MODEL.md).
 
 ---
 
-# 9. Validation philosophy
+# 8. The distinctions that make CRR work
 
-CRR validation is not merely JSON/schema validation.
+## Resource vs ResourceState
 
-The conceptual validation pipeline is:
+`Resource` is a stable identity and lineage container.
+
+`ResourceState` is the physical condition of that resource at a point or interval in time.
+
+Material physical changes preserve history rather than silently overwriting it.
+
+## Transformation vs Execution
+
+`Transformation` is a versioned process definition.
+
+`Execution` records what actually happened.
+
+A transformation definition is not proof that the process occurred.
+
+## Route vs Execution
+
+A `Route` is a computed plan.
+
+`Execution` records actual operations.
+
+A feasible route does not prove that the route was executed.
+
+## Commercial commitment vs physical outcome
+
+```text
+ROUTE
+ ↓
+OPPORTUNITY
+ ↓
+OFFER
+ ↓
+AGREEMENT
+ ↓
+TRANSACTION
+ ↓
+EXECUTION
+```
+
+A completed commercial transaction is not automatically a completed physical transformation.
+
+## Planned vs Actual vs Claimed vs Verified
+
+These are **separate epistemic dimensions**, not one universal linear lifecycle.
+
+- `PLANNED` — intended future value/action.
+- `ACTUAL` — observed execution value.
+- `CLAIMED` — submitted assertion.
+- `VERIFIED` — accepted fact after the required verification process.
+
+## Canonical vs Derived
+
+Canonical data is accepted protocol-domain truth.
+
+Derived data includes graphs, embeddings, indexes, rankings, recommendations, projections, and caches. These are rebuildable and MUST NOT silently become physical truth.
+
+## Evidence vs physical truth
+
+Evidence supports a claim about physical reality. Evidence does not become the physical resource state itself.
+
+---
+
+# 9. Non-negotiable architectural rules
+
+1. **Physical reality is authoritative.** Derived computation cannot outrank authoritative facts.
+2. **ResourceState is the physical primitive.** Routing operates on specific states rather than vague labels.
+3. **Physical history is preserved.** Material changes are represented through new state/version/transition history.
+4. **Hard constraints are deterministic and blocking.** AI cannot override them.
+5. **Jev is advisory.** It reasons inside a bounded decision interface.
+6. **Route is not execution.** Plans and actual operations are distinct.
+7. **Claim is not verification.** Evidence-backed verification is explicit.
+8. **Derived data is disposable.** Graphs, embeddings, indexes, rankings, and caches can be rebuilt.
+9. **Important transitions are attributable.** Actor, organization, time, and provenance matter.
+10. **Important state is versioned.** Stale writes cannot silently overwrite newer state.
+11. **External mutations are retry-safe.** Idempotency is required where duplicate effects are possible.
+12. **The protocol is implementation-independent.** A reference stack is not a protocol dependency.
+13. **Human approval is initially required for material physical/commercial actions.**
+14. **Third parties can implement the protocol independently.**
+
+The explicit consistency rules are in [`CRR_NORMATIVE_AMENDMENT_0.1.1.md`](./docs/CRR_NORMATIVE_AMENDMENT_0.1.1.md).
+
+---
+
+# 10. Routing model
+
+Routing is intentionally layered:
+
+1. **Candidate discovery** — find potentially compatible demand, capabilities, and transformations.
+2. **Hard constraints** — reject impossible or unauthorized routes.
+3. **Physical feasibility** — validate state transitions, quantity, quality, and transformation compatibility.
+4. **Capacity and timing** — validate operating windows and finite capacity.
+5. **Logistics** — validate movement requirements and costs.
+6. **Regulatory/safety** — enforce applicable blockers.
+7. **Economics** — calculate reproducible value/cost outcomes.
+8. **Optimization** — rank feasible routes against explicit objectives.
+9. **Decision support** — optionally use Jev for bounded contextual reasoning.
+10. **Human approval** — initially required before material execution.
+
+An infeasible route cannot become feasible because it receives a higher score or favorable AI recommendation.
+
+See [`CRR_DECISION_AND_ROUTING_SPEC.md`](./docs/CRR_DECISION_AND_ROUTING_SPEC.md).
+
+---
+
+# 11. Jev / AI boundary
+
+```text
+Decision Engine
+ ├── deterministic rules
+ ├── hard constraints
+ ├── optimization
+ ├── evidence checks
+ └── DecisionProvider
+       └── JevProvider
+```
+
+Jev MAY assist with:
+
+- semantic compatibility;
+- ambiguous classification;
+- candidate prioritization;
+- qualitative tradeoffs;
+- contextual interpretation;
+- explanations;
+- escalation.
+
+Jev MUST NOT:
+
+- override hard constraints;
+- invent physical facts;
+- create capacity;
+- invent regulations;
+- fabricate evidence;
+- mutate canonical state directly;
+- authorize itself;
+- execute physical/commercial actions.
+
+If Jev is unavailable, deterministic routing continues where possible and ambiguous cases can escalate to humans.
+
+---
+
+# 12. Physical execution and evidence
+
+```text
+TRANSACTION
+ ↓
+EXECUTION
+ ↓
+PICKUP / TRANSFER
+ ↓
+SHIPMENT
+ ↓
+RECEIPT
+ ↓
+PROCESSING
+ ↓
+OUTPUT
+ ↓
+ACCEPTANCE
+ ↓
+EVIDENCE
+ ↓
+VERIFICATION
+ ↓
+VERIFIED OUTCOME
+```
+
+Evidence can include:
+
+- weighbridge records;
+- laboratory reports;
+- inspection records;
+- pickup records;
+- shipment records;
+- delivery receipts;
+- processing records;
+- buyer acceptance;
+- output measurements.
+
+A verified outcome requires the required evidence and an authorized verification process.
+
+---
+
+# 13. Data authority model
+
+| Classification | Meaning |
+|---|---|
+| `RAW` | Original source input |
+| `VALIDATED` | Passed applicable checks |
+| `NORMALIZED` | Converted into canonical representation |
+| `CANONICAL` | Accepted domain truth |
+| `DERIVED` | Rebuildable computation |
+| `PLANNED` | Intended future action/value |
+| `ACTUAL` | Observed execution value |
+| `CLAIMED` | Submitted assertion |
+| `VERIFIED` | Evidence-backed accepted fact |
+
+These are not a universal state machine. They describe different authority/epistemic properties that may coexist.
+
+---
+
+# 14. Validation philosophy
+
+CRR validation is substantially more than JSON schema validation.
 
 ```text
 SYNTAX
@@ -384,137 +533,65 @@ EXECUTION
 EVIDENCE / VERIFICATION
 ```
 
-The complete validation and invariant registry is maintained in:
-
-[`docs/CRR_VALIDATION_AND_INVARIANTS.md`](./docs/CRR_VALIDATION_AND_INVARIANTS.md)
+The full validation registry and invariants are in [`CRR_VALIDATION_AND_INVARIANTS.md`](./docs/CRR_VALIDATION_AND_INVARIANTS.md).
 
 ---
 
-# 10. Routing model
+# 15. Quantity and economics
 
-Routing is layered deliberately.
+Authoritative quantities and monetary values use exact decimal semantics or equivalent exact representations.
 
-1. **Candidate discovery** — find potentially compatible demand, capabilities, and transformations.
-2. **Hard constraints** — reject impossible or unauthorized routes.
-3. **Physical feasibility** — validate state transitions, quantity, quality, and transformation compatibility.
-4. **Capacity and timing** — validate operating windows, reservations, and delivery constraints.
-5. **Logistics** — compute movement requirements and costs.
-6. **Regulatory/safety** — enforce applicable hard requirements.
-7. **Economics** — compute reproducible value/cost outcomes.
-8. **Optimization** — rank feasible routes according to explicit objectives.
-9. **Decision support** — optionally use Jev for contextual reasoning.
-10. **Human approval** — initially required for material physical/commercial execution.
+Example quantity:
 
-An infeasible route cannot become feasible because it receives a higher score or favorable AI recommendation.
-
----
-
-# 11. Decision and Jev model
-
-```text
-Decision Engine
-   ├── deterministic rules
-   ├── hard constraints
-   ├── optimization
-   ├── evidence checks
-   └── DecisionProvider
-          └── JevProvider
+```json
+{
+  "value": "100.000",
+  "unit": "t"
+}
 ```
 
-Jev can assist with:
+Example money:
 
-- semantic compatibility;
-- ambiguous classification;
-- candidate prioritization;
-- qualitative tradeoffs;
-- contextual interpretation;
-- explanations;
-- escalation.
-
-Jev cannot:
-
-- override hard constraints;
-- invent physical facts;
-- create capacity;
-- invent regulations;
-- fabricate evidence;
-- mutate canonical state directly;
-- execute commercial/physical actions.
-
-If Jev is unavailable, deterministic routing continues where possible and ambiguous cases can escalate to human review.
-
----
-
-# 12. Commercial model inside the protocol
-
-```text
-ROUTE
- ↓
-OPPORTUNITY
- ↓
-OFFER
- ↓
-AGREEMENT
- ↓
-TRANSACTION
+```json
+{
+  "amount": "125000.00",
+  "currency": "SAR"
+}
 ```
 
-The distinctions are deliberate:
+Binary floating point MUST NOT be the authoritative physical or monetary representation.
 
-- **Opportunity:** commercially actionable possibility.
-- **Offer:** proposed terms.
-- **Agreement:** accepted obligations/terms.
-- **Transaction:** protocol-level commercial execution record.
-
-Commercial state does not prove physical completion.
-
----
-
-# 13. Physical execution and evidence
+Where conservation applies:
 
 ```text
-TRANSACTION
- ↓
-EXECUTION
- ↓
-PICKUP
- ↓
-SHIPMENT
- ↓
-RECEIPT
- ↓
-PROCESSING
- ↓
-OUTPUT
- ↓
-DELIVERY / ACCEPTANCE
- ↓
-EVIDENCE
- ↓
-VERIFICATION
+INPUTS = OUTPUTS + DECLARED LOSSES / RESIDUALS
 ```
 
-Evidence can include:
+within an explicit tolerance and declared transformation model.
 
-- weighbridge records;
-- laboratory reports;
-- inspection records;
-- pickup records;
-- shipment records;
-- delivery receipts;
-- processing records;
-- buyer acceptance;
-- output measurements.
+Economic calculation conceptually follows:
 
-A verified outcome requires the required evidence and an authorized verification process.
+```text
+VALUE
+− TRANSPORT
+− PROCESSING
+− HANDLING
+− CERTIFICATION
+− TAXES / FEES
+− OTHER COSTS
+=
+NET ECONOMIC VALUE
+```
+
+Calculation assumptions, versions, sources, currencies, quantities, and rounding policy must be reproducible.
 
 ---
 
-# 14. Event architecture
+# 16. Event architecture
 
-Material protocol changes produce immutable events.
+Material protocol changes are represented by immutable events.
 
-Recommended examples:
+Representative events include:
 
 ```text
 resource.created
@@ -544,45 +621,19 @@ transaction.completed
 outcome.verified
 ```
 
-Event delivery may be at least once, so consumers must be idempotent.
+At-least-once delivery is acceptable, but consumers MUST be idempotent.
 
 ---
 
-# 15. Data authority model
-
-CRR distinguishes:
-
-| Class | Meaning |
-|---|---|
-| Raw | Original source input |
-| Validated | Passed applicable checks |
-| Normalized | Converted into canonical form |
-| Canonical | Accepted domain truth |
-| Derived | Regenerable computation |
-| Planned | Intended future action |
-| Actual | Observed execution value |
-| Claimed | Submitted assertion |
-| Verified | Evidence-backed accepted fact |
-
-A raw record is not automatically canonical.
-
-A derived record is never authoritative merely because it was produced by a trusted service.
-
-A planned value is not an actual value.
-
-An actual observation is not automatically verified.
-
-A claim is not a verified fact.
-
----
-
-# 16. API surface
+# 17. API surface
 
 Reference API prefix:
 
-`/v1`
+```text
+/v1
+```
 
-Canonical resources:
+Core resources:
 
 ```text
 /v1/organizations
@@ -606,15 +657,57 @@ Canonical resources:
 /v1/webhooks
 ```
 
-The API enforces authorization, domain validation, idempotency where required, optimistic concurrency, explicit state transitions, and tenant isolation.
+Important API principles:
 
-Full contract:
+- authorization before protected disclosure;
+- domain validation before canonical mutation;
+- explicit lifecycle transitions;
+- idempotency for duplicate-effect mutations;
+- optimistic concurrency for stale writes;
+- tenant isolation;
+- machine-readable errors;
+- asynchronous status for long-running operations.
 
-[`docs/CRR_API_CONTRACT.md`](./docs/CRR_API_CONTRACT.md)
+Material `ResourceState` changes should use explicit transition operations and MUST NOT be freely writable through a generic patch.
+
+See [`CRR_API_CONTRACT.md`](./docs/CRR_API_CONTRACT.md).
 
 ---
 
-# 17. Reference implementation
+# 18. Security model
+
+CRR implementations should provide:
+
+- OAuth2/OIDC users or equivalent identity;
+- API keys/service accounts for machine access;
+- least-privilege RBAC/scopes;
+- strict tenant isolation;
+- protected evidence access;
+- protected economics and proprietary capability data;
+- encryption in transit and at rest as appropriate;
+- secure secret handling;
+- signed webhooks where appropriate;
+- immutable/auditable event history;
+- controlled decision-provider context.
+
+Representative roles:
+
+```text
+ORG_ADMIN
+RESOURCE_MANAGER
+OPERATOR
+TRANSACTION_MANAGER
+VERIFIER
+AUDITOR
+DEVELOPER
+READ_ONLY
+```
+
+A client cannot make an object verified simply by submitting `status = VERIFIED`.
+
+---
+
+# 19. Reference implementation architecture
 
 A practical reference implementation can use:
 
@@ -634,403 +727,231 @@ This is a reference stack, not a protocol dependency.
 
 ---
 
-# 18. Repository documentation
+# 20. Conformance
 
-The `docs/` directory contains the canonical architecture and protocol specifications.
+CRR defines a progressive conformance ladder:
 
-| Document | Role |
-|---|---|
-| [`CRR_PROTOCOL_SPEC.md`](./docs/CRR_PROTOCOL_SPEC.md) | Normative protocol meaning, object semantics, lifecycle rules, versioning, conformance, and protocol invariants. |
-| [`CRR_DOMAIN_MODEL.md`](./docs/CRR_DOMAIN_MODEL.md) | Canonical domain objects, relationships, ownership, lineage, state machines, and epistemic distinctions. |
-| [`SYSTEM_DESIGN.md`](./docs/SYSTEM_DESIGN.md) | Complete reference system architecture, layers, storage, deployment, security, testing, scaling, and MVP. |
-| [`CRR_DATA_FLOW_ARCHITECTURE.md`](./docs/CRR_DATA_FLOW_ARCHITECTURE.md) | Complete data movement from physical reality through ingestion, routing, execution, evidence, and verified outcomes. |
-| [`CRR_DECISION_AND_ROUTING_SPEC.md`](./docs/CRR_DECISION_AND_ROUTING_SPEC.md) | Candidate discovery, hard constraints, feasibility, capacity, logistics, economics, optimization, decision/Jev boundaries, and routing invariants. |
-| [`CRR_API_CONTRACT.md`](./docs/CRR_API_CONTRACT.md) | External API resources, authentication, authorization, errors, precision, concurrency, idempotency, webhooks, ingestion, and versioning. |
-| [`CRR_VALIDATION_AND_INVARIANTS.md`](./docs/CRR_VALIDATION_AND_INVARIANTS.md) | Full validation model, invariant registry, failure semantics, security rules, AI adversarial validation, conformance, and testing requirements. |
+```text
+LEVEL 0 — SCHEMA
+Canonical object representation.
 
-These documents are designed as one coherent specification set.
+LEVEL 1 — REALITY
+Physical-state, provenance, quantity, lineage, and authority semantics.
 
----
+LEVEL 2 — ROUTING
+Feasibility, constraints, capacity, logistics, economics, and route semantics.
 
-# 19. Documentation authority
+LEVEL 3 — TRANSACTION
+Opportunity, offer, agreement, transaction, and execution semantics.
 
-When two documents overlap, use this authority order:
+LEVEL 4 — VERIFICATION
+Evidence, verification, attribution, disputes, and verified outcomes.
 
-1. **Protocol semantics:** `CRR_PROTOCOL_SPEC.md`
-2. **Canonical objects:** `CRR_DOMAIN_MODEL.md`
-3. **Validation/invariants:** `CRR_VALIDATION_AND_INVARIANTS.md`
-4. **Routing/decision behavior:** `CRR_DECISION_AND_ROUTING_SPEC.md`
-5. **Observable API behavior:** `CRR_API_CONTRACT.md`
-6. **Reference system architecture:** `SYSTEM_DESIGN.md`
-7. **Data movement:** `CRR_DATA_FLOW_ARCHITECTURE.md`
+LEVEL 5 — NETWORK
+Independent implementations and third-party ecosystem interoperability.
+```
 
-An implementation must not silently redefine a higher-authority rule.
+Using CRR object names or `/v1` endpoints alone does not constitute full conformance. Observable semantic behavior is what matters.
 
 ---
 
-# 20. Complete reference scenario
+# 21. MVP boundary
+
+The first operational proof should be narrow but architecturally complete:
 
 ```text
 Factory A
-  ↓
-100 t ResourceState S1
-  ↓
-Validate quantity / unit / quality / location / ownership
-  ↓
-Active Demand D1
-  ↓
-Capability C1
-  ↓
-Transformation S1 → S2
-  ↓
-Candidate routes
-  ↓
-Hard constraints
-  ↓
-Physical feasibility
-  ↓
-Capacity + timing
-  ↓
-Logistics
-  ↓
-Regulatory / safety
-  ↓
-Deterministic economics
-  ↓
-Feasible route ranking
-  ↓
-Optional Jev decision support
-  ↓
-Opportunity
-  ↓
-Offer
-  ↓
-Agreement
-  ↓
-Transaction
-  ↓
-Execution
-  ↓
-Pickup
-  ↓
-Shipment
-  ↓
-Receipt
-  ↓
-Processing
-  ↓
-Output S2
-  ↓
-Delivery / acceptance
-  ↓
-Evidence
-  ↓
-Verification
-  ↓
-Verified outcome
-  ↓
-Observed yield / cost / time / quality
-  ↓
-Network knowledge
+→ ResourceState
+→ Demand
+→ Capability
+→ Transformation
+→ Candidate Routes
+→ Hard Constraint Validation
+→ Feasible Route
+→ Economics
+→ Decision
+→ Opportunity
+→ Agreement
+→ Transaction
+→ Execution
+→ Shipment
+→ Receipt
+→ Transformation
+→ Evidence
+→ Verification
+→ Verified Outcome
+→ Network Update
 ```
 
-This is the minimum complete proof that CRR is more than a matching engine.
+The MVP does **not** require:
 
----
-
-# 21. MVP definition
-
-The MVP is intentionally **narrow in scope but broad in architecture**.
-
-Initial operating profile:
-
-- one industrial cluster;
-- one to three resource classes;
-- several real organizations;
-- processors/capabilities;
-- relevant logistics;
-- human approval;
-- at least one complete verified transaction.
-
-The MVP must demonstrate:
-
-```text
-RESOURCE EXISTS
-→ REPRESENTED
-→ DEMAND FOUND
-→ CAPABILITY FOUND
-→ TRANSFORMATION IDENTIFIED
-→ ROUTE COMPUTED
-→ ROUTE VALIDATED
-→ DECISION MADE
-→ OPPORTUNITY CREATED
-→ TRANSACTION AGREED
-→ EXECUTION COMPLETED
-→ EVIDENCE VERIFIED
-→ OUTCOME RECORDED
-```
-
-The MVP does not require:
-
-- cross-border operations;
-- autonomous physical execution;
+- cross-border routing;
+- autonomous execution;
 - principal trading;
-- financing;
-- insurance;
+- financing or insurance;
 - a dedicated graph database;
-- a global marketplace;
-- global ontology completeness;
-- microservice decomposition.
+- a third-party marketplace;
+- a global ontology.
+
+The MVP philosophy is **narrow operational scope with final architectural principles**.
 
 ---
 
-# 22. Network architecture
+# 22. Strategic rollout
 
-Long term, CRR can support an ecosystem of independent participants:
-
-```text
-                         CRR NETWORK
-                              │
-       ┌──────────────────────┼──────────────────────┐
-       │                      │                      │
-   Logistics              Processing             Finance
-       │                      │                      │
- Certification           Brokerage             Insurance
-       │                      │                      │
-   Analytics             Manufacturing          Markets
-       │                      │                      │
-       └──────────────────────┼──────────────────────┘
-                              │
-                       Third-party apps
-                              │
-                         APIs / SDKs
-```
-
-Potential ecosystem participants include logistics providers, processors, brokers, laboratories, certification providers, manufacturers, analytics companies, financing providers, insurers, and specialized applications.
-
-The strategic goal is not to prevent other businesses from competing. It is to make participation in the network more valuable than operating without it.
-
----
-
-# 23. Network flywheel
+The intended network strategy is density before breadth:
 
 ```text
-MORE COMPANIES
-       ↓
-MORE RESOURCE DATA
-       ↓
-MORE DEMAND
-       ↓
-MORE CAPABILITIES
-       ↓
-MORE POSSIBLE ROUTES
-       ↓
-MORE TRANSACTIONS
-       ↓
-MORE VERIFIED OUTCOMES
-       ↓
-BETTER ROUTING
-       ↓
-MORE ECONOMIC VALUE
-       ↓
-MORE COMPANIES
-```
-
-Network density is more important than premature geographic breadth.
-
----
-
-# 24. Scaling roadmap
-
-```text
-ONE INDUSTRIAL CLUSTER
-        ↓
+ONE CLUSTER
+↓
 MULTIPLE COMPANIES
-        ↓
-MULTIPLE RESOURCE CLASSES
-        ↓
-PROCESSORS + LOGISTICS
-        ↓
-VERIFIED TRANSACTIONS
-        ↓
+↓
+MULTIPLE RESOURCE TYPES
+↓
+PROCESSORS
+↓
+LOGISTICS
+↓
+TRANSACTIONS
+↓
+VERIFIED OUTCOMES
+↓
 MORE CLUSTERS
-        ↓
-SAUDI ARABIA
-        ↓
+↓
+SAUDI
+↓
 GCC
-        ↓
+↓
 MENA
-        ↓
+↓
 GLOBAL
 ```
 
-The system should prove repeatable economic value before expanding across every industry or geography.
+Saudi Arabia is a plausible launch market, but CRR should not be described as having no competitors or as an already established standard. The differentiation is the proposed protocol/infrastructure model and its closed loop from physical reality to verified outcome.
 
 ---
 
-# 25. Development roadmap
-
-## Phase 0 — CRR Constitution
-
-Freeze terminology, scope, protocol principles, governance, object semantics, invariants, extension rules, and conformance definitions.
-
-## Phase 1 — Resource Reality
-
-Canonical ingestion, normalization, provenance, Resource, and ResourceState.
-
-## Phase 2 — Market Reality
-
-Demand and Capability registries.
-
-## Phase 3 — Route Intelligence
-
-Transformations, graph, routing, economics, optimization, and decision support.
-
-## Phase 4 — Physical Execution
-
-Human-controlled opportunities, transactions, execution, and evidence.
-
-## Phase 5 — Verified Network
-
-Verification, trust, reliability history, and repeat transactions.
-
-## Phase 6 — Saudi Network
-
-Industrial-cluster density and real commercial deployment.
-
-## Phase 7 — Open Infrastructure
-
-APIs, SDKs, webhooks, integrations, and developer tooling.
-
-## Phase 8 — Ecosystem
-
-Logistics, processing, certification, finance, insurance, analytics, and applications.
-
-## Phase 9 — Regional
-
-GCC → MENA.
-
-## Phase 10 — Global
-
-Interoperable cross-border resource routing.
-
----
-
-# 26. Engineering principles
-
-1. **Reality first.**
-2. **Protocol before application complexity.**
-3. **ResourceState before marketplace concepts.**
-4. **Deterministic constraints before AI recommendations.**
-5. **Evidence before trust.**
-6. **Execution before impact claims.**
-7. **API-first.**
-8. **Implementation-independent semantics.**
-9. **Human approval before autonomous physical action.**
-10. **Append history rather than silently rewrite it.**
-11. **Derived data must be rebuildable.**
-12. **Network density before geographic breadth.**
-13. **Failures must be explicit.**
-14. **Every important decision must be auditable.**
-
----
-
-# 27. What a conforming implementation must preserve
-
-A conforming implementation must preserve:
-
-- stable identity;
-- ResourceState semantics;
-- quantity/unit precision;
-- quality semantics;
-- physical lineage;
-- demand lifecycle;
-- capability lifecycle;
-- transformation/yield rules;
-- deterministic hard constraints;
-- route feasibility;
-- economic reproducibility;
-- bounded decision support;
-- transaction state;
-- execution history;
-- evidence provenance;
-- verification authority;
-- event immutability;
-- idempotency;
-- tenant isolation;
-- API version semantics;
-- derived/canonical separation.
-
----
-
-# 28. Implementation independence
-
-CRR does not require:
-
-- PostgreSQL;
-- PostGIS;
-- FastAPI;
-- Python;
-- React;
-- Redis;
-- Celery;
-- a dedicated graph database;
-- a particular cloud provider;
-- Jev;
-- a particular AI model.
-
-These are reference implementation choices.
-
-The protocol survives replacement of the database, graph engine, UI, AI provider, worker system, and cloud environment.
-
----
-
-# 29. Current repository role
-
-This repository is currently the **protocol and architecture foundation** for CRR.
-
-The documentation intentionally establishes the target semantics before implementation complexity is allowed to determine the architecture.
-
-The correct next engineering objective is not to build every feature simultaneously.
-
-It is to implement the protocol core and prove one complete, evidence-backed, economically meaningful physical-resource loop.
-
----
-
-# 30. Final CRR principle
-
-> **CRR must never allow a computational representation, model output, recommendation, route score, commercial state, cached projection, or user assertion to become more authoritative than the physical, economic, authorization, and evidence-backed reality it represents.**
-
-The complete loop is:
+# 23. Economic flywheel
 
 ```text
-REALITY
-  ↓
-REPRESENTATION
-  ↓
-VALIDATION
-  ↓
-ROUTING
-  ↓
-DECISION
-  ↓
-COMMERCIAL COMMITMENT
-  ↓
-EXECUTION
-  ↓
-EVIDENCE
-  ↓
-VERIFICATION
-  ↓
-TRUSTED OUTCOME
-  ↓
-BETTER FUTURE ROUTING
+MORE COMPANIES
+↓
+MORE RESOURCE DATA
+↓
+MORE DEMAND
+↓
+MORE CAPABILITIES
+↓
+MORE ROUTES
+↓
+MORE TRANSACTIONS
+↓
+MORE VERIFIED OUTCOMES
+↓
+BETTER ROUTING
+↓
+MORE ECONOMIC VALUE
+↓
+MORE COMPANIES
 ```
 
-CRR is intended to make physical-resource circulation computable without losing the distinction between what is proposed, what is observed, what is claimed, and what is verified.
+Potential commercial layers include:
+
+1. enterprise resource intelligence;
+2. success/transaction fees;
+3. execution coordination;
+4. verification;
+5. API/infrastructure access;
+6. later ecosystem, logistics, financing, or insurance services.
+
+The initial model should favor facilitation and managed execution rather than principal ownership of resource risk.
 
 ---
 
-# License
+# 24. Third-party ecosystem
 
-License terms are to be defined by the repository owner.
+CRR is designed to support independent participants such as:
+
+- logistics providers;
+- resource brokers;
+- processors;
+- laboratories;
+- certification providers;
+- financing providers;
+- insurers;
+- analytics applications;
+- manufacturers;
+- specialized marketplaces;
+- developer applications.
+
+The protocol should remain useful even when these participants are supplied by independent organizations.
+
+---
+
+# 25. Documentation map
+
+| Document | Authority / purpose |
+|---|---|
+| [`CRR_SPECIFICATION_INDEX.md`](./docs/CRR_SPECIFICATION_INDEX.md) | Orientation, distinctions, reading order, reviewer checklist. |
+| [`CRR_PROTOCOL_SPEC.md`](./docs/CRR_PROTOCOL_SPEC.md) | Normative protocol semantics, objects, lifecycle, versioning, conformance. |
+| [`CRR_DOMAIN_MODEL.md`](./docs/CRR_DOMAIN_MODEL.md) | Canonical objects, relationships, identity, lineage, and state semantics. |
+| [`CRR_VALIDATION_AND_INVARIANTS.md`](./docs/CRR_VALIDATION_AND_INVARIANTS.md) | Validation pipeline, invariant registry, failure semantics, security, testing, conformance. |
+| [`CRR_DECISION_AND_ROUTING_SPEC.md`](./docs/CRR_DECISION_AND_ROUTING_SPEC.md) | Routing, hard constraints, feasibility, capacity, logistics, economics, optimization, Jev boundaries. |
+| [`CRR_API_CONTRACT.md`](./docs/CRR_API_CONTRACT.md) | External API behavior, precision, auth, concurrency, idempotency, resources, webhooks. |
+| [`CRR_DATA_FLOW_ARCHITECTURE.md`](./docs/CRR_DATA_FLOW_ARCHITECTURE.md) | End-to-end data movement from physical reality to verified outcome. |
+| [`SYSTEM_DESIGN.md`](./docs/SYSTEM_DESIGN.md) | Reference architecture, storage, services, deployment, security, testing, scaling, MVP. |
+| [`CRR_NORMATIVE_AMENDMENT_0.1.1.md`](./docs/CRR_NORMATIVE_AMENDMENT_0.1.1.md) | Cross-document normative clarifications and strict consistency rules. |
+
+### Authority order
+
+1. Protocol semantics — `CRR_PROTOCOL_SPEC.md`
+2. Canonical objects — `CRR_DOMAIN_MODEL.md`
+3. Validation/invariants — `CRR_VALIDATION_AND_INVARIANTS.md`
+4. Routing/decision — `CRR_DECISION_AND_ROUTING_SPEC.md`
+5. API — `CRR_API_CONTRACT.md`
+6. Reference architecture — `SYSTEM_DESIGN.md`
+7. Data flow — `CRR_DATA_FLOW_ARCHITECTURE.md`
+8. Cross-document clarifications — `CRR_NORMATIVE_AMENDMENT_0.1.1.md` where it explicitly applies
+
+---
+
+# 26. Repository status
+
+This repository currently represents the **protocol and architecture specification foundation**.
+
+It should therefore be judged on:
+
+- semantic completeness;
+- internal consistency;
+- precise domain boundaries;
+- deterministic invariants;
+- interoperability;
+- implementation clarity;
+- security and authorization boundaries;
+- reproducibility;
+- conformance definitions.
+
+The presence of a complete specification does **not** imply that a production implementation already exists.
+
+---
+
+# 27. Definition of success
+
+CRR is successful when an independent implementation team can read this repository and build a compatible system without needing undocumented assumptions about:
+
+- what a resource is;
+- what a resource state is;
+- how physical changes are represented;
+- how routes are generated and rejected;
+- how hard constraints work;
+- how capacity is reserved;
+- how economics are computed;
+- where AI/Jev is allowed;
+- how commercial commitments differ from physical execution;
+- how evidence becomes verification;
+- how events remain auditable;
+- how APIs preserve invariants;
+- how tenants and permissions are isolated;
+- what conformance means.
+
+That is the standard this repository is intended to meet.
