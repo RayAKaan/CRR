@@ -431,7 +431,10 @@ def patch_capability(
     minimum_value = body.minimum_batch
     if minimum_value is None and current.minimum_batch is not None:
         minimum_value = current.minimum_batch.value
-    minimum_batch = _quantity(minimum_value, unit, registry_version) if minimum_value is not None else None
+    if minimum_value is not None:
+        minimum_batch = _quantity(minimum_value, unit, registry_version)
+    else:
+        minimum_batch = None
     _validate_units(request, capacity, minimum_batch)
     location_id = body.location_id or current.location_id
     location = _location(request, session, location_id, principal.organization_id)
