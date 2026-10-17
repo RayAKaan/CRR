@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
@@ -33,7 +33,9 @@ _ALLOWED_TRANSITIONS: dict[DemandStatus, frozenset[DemandStatus]] = {
             DemandStatus.DISPUTED,
         }
     ),
-    DemandStatus.PAUSED: frozenset({DemandStatus.ACTIVE, DemandStatus.CANCELLED, DemandStatus.DISPUTED}),
+    DemandStatus.PAUSED: frozenset(
+        {DemandStatus.ACTIVE, DemandStatus.CANCELLED, DemandStatus.DISPUTED}
+    ),
     DemandStatus.FULFILLED: frozenset(),
     DemandStatus.EXPIRED: frozenset(),
     DemandStatus.CANCELLED: frozenset(),
@@ -93,8 +95,6 @@ class Demand:
             raise DomainError("Demand quantity bounds must satisfy min <= target <= max.")
         if not self.quantity_min.value <= self.remaining_quantity.value <= self.quantity_max.value:
             raise DomainError("Remaining demand must remain within its declared bounds.")
-        if self.quantity_target.value == Decimal("0") and self.status == DemandStatus.ACTIVE:
-            raise DomainError("An active Demand must require a positive target quantity.")
         if self.timing_start.tzinfo is None or self.timing_start.utcoffset() is None:
             raise DomainError("Demand timing_start must include a timezone.")
         if self.timing_end.tzinfo is None or self.timing_end.utcoffset() is None:
@@ -108,14 +108,13 @@ class Demand:
         object.__setattr__(self, "created_at", self.created_at.astimezone(UTC))
         object.__setattr__(self, "updated_at", self.updated_at.astimezone(UTC))
 
-    def transition(self, target: DemandStatus) -> Demand:
+    def transition(self, target: DemandStatus, *, at: datetime | None = None) -> Demand:
         if target not in _ALLOWED_TRANSITIONS[self.status]:
             raise DomainError(f"Illegal Demand lifecycle transition: {self.status} -> {target}.")
-        return Demand(
-            **{
-                **self.__dict__ if hasattr(self, "__dict__") else {},
-            }
-        )
+        updated_at = at or datetime.now(UTC)
+        if updated_at.tzinfo is None or updated_at.utcoffset() is None:
+            raise DomainError("Demand transition timestamp must include a timezone.")
+        return replace(self, status=target, version=self.version + 1, updated_at=updated_at)
 
 
 def validate_demand_tenant(demand: Demand, organization_id: str) -> None:
