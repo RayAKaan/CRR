@@ -4,8 +4,8 @@ from decimal import Decimal
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
-import crr.demand_model  # noqa: F401
-from crr.models import Base, Demand
+from crr.demand_model import Demand
+from crr.models import Base
 
 
 def test_demand_table_round_trips_exact_quantities_and_metadata():
@@ -13,8 +13,6 @@ def test_demand_table_round_trips_exact_quantities_and_metadata():
     Base.metadata.create_all(engine)
     now = datetime(2026, 10, 18, tzinfo=UTC)
     with Session(engine) as session:
-        # Reference integrity is covered by the migration/API conformance suite; this test
-        # isolates exact persistence behavior after the model is registered.
         from crr.models import Actor, Organization
 
         session.add(Organization(id="org_d", name="Demand Org", status="ACTIVE", created_at=now))
