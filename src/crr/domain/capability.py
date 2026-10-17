@@ -55,8 +55,15 @@ class Capability:
     updated_at: datetime
 
     def __post_init__(self) -> None:
-        if not self.id or not self.organization_id or not self.location_id or not self.created_by:
-            raise DomainError("Capability identity, organization, location, and creator are required.")
+        if (
+            not self.id
+            or not self.organization_id
+            or not self.location_id
+            or not self.created_by
+        ):
+            raise DomainError(
+                "Capability identity, organization, location, and creator are required."
+            )
         if not self.accepted_inputs:
             raise DomainError("At least one accepted input specification is required.")
         if not self.output_specifications:
@@ -67,23 +74,39 @@ class Capability:
             if self.minimum_batch.unit != self.capacity.unit:
                 raise DomainError("Minimum batch and capacity must use the same unit.")
             if self.minimum_batch.unit_registry_version != self.capacity.unit_registry_version:
-                raise DomainError("Minimum batch and capacity must use the same unit registry version.")
+                raise DomainError(
+                    "Minimum batch and capacity must use the same unit registry version."
+                )
             if self.minimum_batch.value > self.capacity.value:
                 raise DomainError("Minimum batch cannot exceed capability capacity.")
-        if self.operating_window_start.tzinfo is None or self.operating_window_start.utcoffset() is None:
+        if (
+            self.operating_window_start.tzinfo is None
+            or self.operating_window_start.utcoffset() is None
+        ):
             raise DomainError("Capability operating window start must include a timezone.")
-        if self.operating_window_end.tzinfo is None or self.operating_window_end.utcoffset() is None:
+        if (
+            self.operating_window_end.tzinfo is None
+            or self.operating_window_end.utcoffset() is None
+        ):
             raise DomainError("Capability operating window end must include a timezone.")
         if self.operating_window_start >= self.operating_window_end:
             raise DomainError("Capability operating window start must be before end.")
         if not self.provenance:
             raise DomainError("Capability provenance is required.")
-        object.__setattr__(self, "operating_window_start", self.operating_window_start.astimezone(UTC))
-        object.__setattr__(self, "operating_window_end", self.operating_window_end.astimezone(UTC))
+        object.__setattr__(
+            self,
+            "operating_window_start",
+            self.operating_window_start.astimezone(UTC),
+        )
+        object.__setattr__(
+            self,
+            "operating_window_end",
+            self.operating_window_end.astimezone(UTC),
+        )
         object.__setattr__(self, "created_at", self.created_at.astimezone(UTC))
         object.__setattr__(self, "updated_at", self.updated_at.astimezone(UTC))
 
-    def transition(self, target: CapabilityStatus, at: datetime | None = None) -> "Capability":
+    def transition(self, target: CapabilityStatus, at: datetime | None = None) -> Capability:
         """Return a new version after an explicitly allowed lifecycle transition."""
         if target not in _ALLOWED_TRANSITIONS[self.status]:
             raise DomainError(f"Illegal Capability transition: {self.status} -> {target}.")
