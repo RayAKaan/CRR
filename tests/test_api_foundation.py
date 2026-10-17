@@ -146,6 +146,24 @@ def test_api_rejects_float_negative_and_cross_tenant_reads() -> None:
         },
     )
     assert invalid.status_code == 422
+    for key, value, unit in (("float", 1.25, "t"), ("unit", "1", "lb")):
+        rejected = client.post(
+            "/v1/resource-states",
+            headers=headers(token, key),
+            json={
+                "resource_id": resource,
+                "state_type": "ALUMINUM",
+                "quantity": {
+                    "value": value,
+                    "unit": unit,
+                    "unit_registry_version": "CRR-UNITS-0.1",
+                },
+                "location_id": location,
+                "effective_at": "2026-10-17T12:00:00Z",
+                "provenance": {"source_type": "MANUAL"},
+            },
+        )
+        assert rejected.status_code == 422
 
     other, other_token, _other_engine = make_client("org_b")
     hidden = other.get(f"/v1/resources/{resource}/resource-states", headers=headers(other_token))
