@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import JSON, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Index, JSON, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from crr.models import AwareDateTime, Base, ExactDecimal
@@ -14,7 +14,16 @@ from crr.models import AwareDateTime, Base, ExactDecimal
 
 class Demand(Base):
     __tablename__ = "demands"
-    __table_args__ = (UniqueConstraint("organization_id", "id"),)
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id"),
+        Index("ix_demands_organization_status", "organization_id", "status"),
+        Index(
+            "ix_demands_organization_timing",
+            "organization_id",
+            "timing_start",
+            "timing_end",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(80), primary_key=True)
     organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False)
