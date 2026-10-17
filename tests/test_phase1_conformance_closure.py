@@ -271,13 +271,14 @@ def test_postgresql_parallel_successor_creation_has_one_winner() -> None:
                 created_at=NOW,
             )
         )
+        session.flush()
         session.add(
             APIKey(
                 id=f"key_{suffix}",
                 organization_id=org_id,
                 actor_id=actor_id,
                 secret_hash=sha256(token.encode()).hexdigest(),
-                scopes=["admin:*"] ,
+                scopes=["admin:*"],
                 revoked=False,
                 created_at=NOW,
             )
