@@ -12,6 +12,13 @@ from sqlalchemy.orm import Session
 from crr.models import Actor, Location, Organization, Resource, ResourceState
 
 
+def _tables(engine) -> set[str]:
+    with engine.connect() as connection:
+        return set(
+            connection.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).scalars()
+        )
+
+
 def test_initial_migration_builds_schema_and_protects_physical_history(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
     database_path = tmp_path / "phase1.db"
@@ -22,18 +29,16 @@ def test_initial_migration_builds_schema_and_protects_physical_history(tmp_path:
     command.check(config)
 
     engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    assert {
+        "organizations",
+        "actors",
+        "resources",
+        "resource_states",
+        "state_transitions",
+        "outbox_events",
+    } <= _tables(engine)
+
     with engine.connect() as connection:
-        tables = set(
-            connection.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).scalars()
-        )
-        assert {
-            "organizations",
-            "actors",
-            "resources",
-            "resource_states",
-            "state_transitions",
-            "outbox_events",
-        } <= tables
         triggers = set(
             connection.execute(
                 text("SELECT name FROM sqlite_master WHERE type='trigger'")
@@ -105,3 +110,32 @@ def test_initial_migration_builds_schema_and_protects_physical_history(tmp_path:
             connection.execute(
                 text("UPDATE resource_states SET state_type='FORGED' WHERE id='rst_1'")
             )
+
+    command.downgrade(config, "base")
+    assert not {
+        "organizations",
+        "actors",
+        "resources",
+        "resource_states",
+        "state_transitions",
+        "outbox_events",
+    } & _tables(engine)
+
+    command.upgrade(config, "head")
+    command.check(config)
+    assert {
+        "organizations",
+        "actors",
+        "resources",
+        "resource_states",
+        "state_transitions",
+        "outbox_events",
+    } <= _tables(engine)
+
+    with engine.connect() as connection:
+        triggers = set(
+            connection.execute(
+                text("SELECT name FROM sqlite_master WHERE type='trigger'")
+            ).scalars()
+        )
+        assert "resource_states_no_update" in triggers
