@@ -38,7 +38,7 @@ def make_client(org_id: str = "org_a", scopes: list[str] | None = None):
                 organization_id=org_id,
                 actor_id=f"act_{org_id}",
                 secret_hash=sha256(token.encode()).hexdigest(),
-                scopes=scopes or ["admin:*"] ,
+                scopes=scopes or ["admin:*"],
                 revoked=False,
                 created_at=now,
             )
@@ -76,9 +76,7 @@ DEMAND = {
 
 def test_demand_crud_idempotency_outbox_and_patch_concurrency() -> None:
     client, token, engine = make_client("org_demand")
-    created = client.post(
-        "/v1/demands", headers=headers(token, "demand-create"), json=DEMAND
-    )
+    created = client.post("/v1/demands", headers=headers(token, "demand-create"), json=DEMAND)
     assert created.status_code == 201, created.text
     data = created.json()["data"]
     demand_id = data["id"]
@@ -86,9 +84,7 @@ def test_demand_crud_idempotency_outbox_and_patch_concurrency() -> None:
     assert data["version"] == 1
     assert created.headers["ETag"] == '"version-1"'
 
-    replay = client.post(
-        "/v1/demands", headers=headers(token, "demand-create"), json=DEMAND
-    )
+    replay = client.post("/v1/demands", headers=headers(token, "demand-create"), json=DEMAND)
     assert replay.status_code == 200
     assert replay.json()["data"]["id"] == demand_id
 
@@ -159,9 +155,7 @@ def test_demand_crud_idempotency_outbox_and_patch_concurrency() -> None:
 def test_demand_tenant_isolation_and_scope_boundary() -> None:
     client_a, token_a, _engine_a = make_client("org_demand_a")
     client_b, token_b, _engine_b = make_client("org_demand_b")
-    created = client_a.post(
-        "/v1/demands", headers=headers(token_a, "tenant-demand"), json=DEMAND
-    )
+    created = client_a.post("/v1/demands", headers=headers(token_a, "tenant-demand"), json=DEMAND)
     assert created.status_code == 201
     demand_id = created.json()["data"]["id"]
 
@@ -171,9 +165,7 @@ def test_demand_tenant_isolation_and_scope_boundary() -> None:
     assert collection.status_code == 200
     assert collection.json()["data"] == []
 
-    limited, limited_token, _engine = make_client(
-        "org_demand_limited", scopes=["demands:read"]
-    )
+    limited, limited_token, _engine = make_client("org_demand_limited", scopes=["demands:read"])
     assert limited.get("/v1/demands", headers=headers(limited_token)).status_code == 200
     denied = limited.post(
         "/v1/demands",
@@ -188,9 +180,7 @@ def test_demand_requires_idempotency_and_if_match() -> None:
     missing_key = client.post("/v1/demands", headers=headers(token), json=DEMAND)
     assert missing_key.status_code == 400
 
-    created = client.post(
-        "/v1/demands", headers=headers(token, "header-demand"), json=DEMAND
-    )
+    created = client.post("/v1/demands", headers=headers(token, "header-demand"), json=DEMAND)
     assert created.status_code == 201
     demand_id = created.json()["data"]["id"]
     missing_match = client.patch(
@@ -239,9 +229,7 @@ def test_demand_validation_and_lifecycle_fail_closed() -> None:
     )
     assert unknown_unit.status_code == 422
 
-    created = client.post(
-        "/v1/demands", headers=headers(token, "lifecycle-demand"), json=DEMAND
-    )
+    created = client.post("/v1/demands", headers=headers(token, "lifecycle-demand"), json=DEMAND)
     demand_id = created.json()["data"]["id"]
     invalid_transition = client.patch(
         f"/v1/demands/{demand_id}",
@@ -256,8 +244,7 @@ def test_zero_quantity_demand_is_valid_historical_requirement() -> None:
     zero = client.post(
         "/v1/demands",
         headers=headers(token, "zero-demand"),
-        json=DEMAND
-        | {"quantity_min": "0", "quantity_target": "0", "quantity_max": "0"},
+        json=DEMAND | {"quantity_min": "0", "quantity_target": "0", "quantity_max": "0"},
     )
     assert zero.status_code == 201, zero.text
     assert zero.json()["data"]["remaining_quantity"]["value"] == "0"
