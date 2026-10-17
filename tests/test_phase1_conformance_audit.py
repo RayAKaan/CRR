@@ -6,7 +6,6 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from crr.api import create_app
 from crr.models import (
     Actor,
     APIKey,
@@ -17,6 +16,7 @@ from crr.models import (
     Resource,
     ResourceState,
 )
+from crr.api import create_app
 
 
 NOW = datetime(2026, 10, 17, 12, 0, tzinfo=UTC)
