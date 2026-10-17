@@ -339,3 +339,37 @@ def test_foundation_objects_have_tenant_scoped_detail_reads() -> None:
     wrong_tenant, other_token, _other_engine = make_client("org_b")
     hidden = wrong_tenant.get(f"/v1/resource-states/{state['id']}", headers=headers(other_token))
     assert hidden.status_code == 404
+
+
+def test_collection_reads_are_tenant_scoped_and_cursor_paged() -> None:
+    client_a, token_a, _engine_a = make_client("org_a")
+    client_b, token_b, _engine_b = make_client("org_b")
+    for key, name in (("loc-a1", "Yard A1"), ("loc-a2", "Yard A2")):
+        created = client_a.post(
+            "/v1/locations",
+            headers=headers(token_a, key),
+            json={"name": name, "provenance": {"source_type": "MANUAL"}},
+        )
+        assert created.status_code == 201
+    client_b.post(
+        "/v1/locations",
+        headers=headers(token_b, "loc-b"),
+        json={"name": "Yard B", "provenance": {"source_type": "MANUAL"}},
+    )
+    first = client_a.get("/v1/locations?limit=1", headers=headers(token_a))
+    assert first.status_code == 200
+    first_page = first.json()
+    assert len(first_page["data"]) == 1
+    assert first_page["pagination"]["has_more"] is True
+    second = client_a.get(
+        "/v1/locations",
+        params={"limit": 1, "cursor": first_page["pagination"]["cursor"]},
+        headers=headers(token_a),
+    )
+    assert second.status_code == 200
+    second_page = second.json()
+    assert len(second_page["data"]) == 1
+    assert second_page["data"][0]["id"] != first_page["data"][0]["id"]
+    assert second_page["pagination"]["has_more"] is False
+    resources_b = client_b.get("/v1/resources", headers=headers(token_b))
+    assert resources_b.json()["data"] == []

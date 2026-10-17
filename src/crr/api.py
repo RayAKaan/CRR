@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select, update
@@ -107,6 +107,29 @@ def _state_data(state: ResourceState) -> dict:
         "physical_properties": state.physical_properties,
         "predecessor_state_ids": state.predecessor_state_ids,
     }
+
+
+def _collection(request: Request, data: list[dict], cursor: str | None, has_more: bool, limit: int):
+    return {
+        "data": data,
+        "pagination": {"cursor": cursor, "has_more": has_more, "limit": limit},
+        "meta": {
+            "request_id": request.state.request_id,
+            "api_version": "v1",
+            "schema_version": "0.1",
+        },
+    }
+
+
+def _page(session: Session, model, organization_id: str, limit: int, cursor: str | None):
+    statement = select(model).where(model.organization_id == organization_id)
+    if cursor:
+        statement = statement.where(model.id > cursor)
+    rows = session.scalars(statement.order_by(model.id).limit(limit + 1)).all()
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    next_cursor = rows[-1].id if has_more and rows else None
+    return rows, next_cursor, has_more
 
 
 def db_session(request: Request):
@@ -310,6 +333,52 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
             _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Organization not found.")
         return _envelope(request, {"id": org.id, "name": org.name, "status": org.status})
 
+    @app.get("/v1/organizations")
+    def list_organizations(
+        request: Request,
+        session: Annotated[Session, Depends(db_session)],
+        principal: Annotated[Principal, Depends(scope_required("organizations:read"))],
+        limit: int = Query(default=50, ge=1, le=100),
+        cursor: str | None = None,
+    ):
+        query = select(Organization).where(Organization.id == principal.organization_id)
+        if cursor:
+            query = query.where(Organization.id > cursor)
+        rows = session.scalars(query.order_by(Organization.id).limit(limit + 1)).all()
+        has_more = len(rows) > limit
+        rows = rows[:limit]
+        next_cursor = rows[-1].id if has_more and rows else None
+        return _collection(
+            request,
+            [{"id": row.id, "name": row.name, "status": row.status} for row in rows],
+            next_cursor,
+            has_more,
+            limit,
+        )
+
+    @app.get("/v1/actors")
+    def list_actors(
+        request: Request,
+        session: Annotated[Session, Depends(db_session)],
+        principal: Annotated[Principal, Depends(scope_required("actors:read"))],
+        limit: int = Query(default=50, ge=1, le=100),
+        cursor: str | None = None,
+    ):
+        rows, next_cursor, has_more = _page(
+            session, Actor, principal.organization_id, limit, cursor
+        )
+        data = [
+            {
+                "id": row.id,
+                "organization_id": row.organization_id,
+                "name": row.name,
+                "role": row.role,
+                "active": row.active,
+            }
+            for row in rows
+        ]
+        return _collection(request, data, next_cursor, has_more, limit)
+
     @app.get("/v1/actors/{actor_id}")
     def get_actor(
         actor_id: str,
@@ -412,6 +481,22 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
             },
         )
 
+    @app.get("/v1/locations")
+    def list_locations(
+        request: Request,
+        session: Annotated[Session, Depends(db_session)],
+        principal: Annotated[Principal, Depends(scope_required("locations:read"))],
+        limit: int = Query(default=50, ge=1, le=100),
+        cursor: str | None = None,
+    ):
+        rows, next_cursor, has_more = _page(
+            session, Location, principal.organization_id, limit, cursor
+        )
+        data = [
+            {"id": row.id, "organization_id": row.organization_id, "name": row.name} for row in rows
+        ]
+        return _collection(request, data, next_cursor, has_more, limit)
+
     @app.get("/v1/locations/{location_id}")
     def get_location(
         location_id: str,
@@ -504,6 +589,28 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
         return _envelope(
             request, {"id": item.id, "organization_id": item.organization_id, "name": item.name}
         )
+
+    @app.get("/v1/resources")
+    def list_resources(
+        request: Request,
+        session: Annotated[Session, Depends(db_session)],
+        principal: Annotated[Principal, Depends(scope_required("resources:read"))],
+        limit: int = Query(default=50, ge=1, le=100),
+        cursor: str | None = None,
+    ):
+        rows, next_cursor, has_more = _page(
+            session, Resource, principal.organization_id, limit, cursor
+        )
+        data = [
+            {
+                "id": row.id,
+                "organization_id": row.organization_id,
+                "resource_type": row.resource_type,
+                "version": row.version,
+            }
+            for row in rows
+        ]
+        return _collection(request, data, next_cursor, has_more, limit)
 
     @app.get("/v1/resources/{resource_id}")
     def get_resource(
@@ -714,6 +821,34 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
             )
         response.headers["ETag"] = '"version-1"'
         return _envelope(request, _state_data(item))
+
+    @app.get("/v1/resource-states")
+    def list_resource_states(
+        request: Request,
+        session: Annotated[Session, Depends(db_session)],
+        principal: Annotated[Principal, Depends(scope_required("resources:read"))],
+        limit: int = Query(default=50, ge=1, le=100),
+        cursor: str | None = None,
+        resource_id: str | None = None,
+    ):
+        statement = select(ResourceState).where(
+            ResourceState.organization_id == principal.organization_id
+        )
+        if cursor:
+            statement = statement.where(ResourceState.id > cursor)
+        if resource_id:
+            statement = statement.where(ResourceState.resource_id == resource_id)
+        rows = session.scalars(statement.order_by(ResourceState.id).limit(limit + 1)).all()
+        has_more = len(rows) > limit
+        rows = rows[:limit]
+        next_cursor = rows[-1].id if has_more and rows else None
+        return _collection(
+            request,
+            [_state_data(row) for row in rows],
+            next_cursor,
+            has_more,
+            limit,
+        )
 
     @app.get("/v1/resource-states/{state_id}")
     def get_resource_state(
