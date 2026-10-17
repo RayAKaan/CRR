@@ -71,7 +71,9 @@ class Demand:
     updated_at: datetime
 
     def __post_init__(self) -> None:
-        if not self.id or not self.organization_id or not self.required_state or not self.created_by:
+        if not (
+            self.id and self.organization_id and self.required_state and self.created_by
+        ):
             raise DomainError(
                 "Demand identity, organization, required state and creator are required."
             )
