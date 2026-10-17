@@ -5,6 +5,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from crr.models import Base
+import crr.demand_model
 
 config = context.config
 if config.config_file_name is not None:
