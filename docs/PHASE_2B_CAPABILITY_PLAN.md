@@ -1,6 +1,6 @@
 # Phase 2B Capability Foundation Plan
 
-**Status:** Planned
+**Status:** Implemented — CI green
 **Base:** Phase 2A Demand API merged to `main`
 **Specification target:** CRR 0.1.1 with normative clarification 0.1.2
 **Branch:** `phase2/capability-foundation`
@@ -9,7 +9,7 @@
 
 Implement the canonical Capability boundary defined by the CRR domain model and Phase 2 plan. Capability describes what an organization can physically do; it is a reusable declaration of operational ability, not proof that an operation occurred and not an execution record.
 
-The increment must establish a tenant-isolated, attributable, versioned Capability object with validated accepted input/output specifications, capacity, operating windows, location, authorization/certification metadata, provenance, lifecycle, persistence, API behavior, idempotency, optimistic concurrency, transactional outbox behavior, and executable conformance evidence.
+The increment establishes a tenant-isolated, attributable, versioned Capability object with validated accepted input/output specifications, capacity, operating windows, location, authorization/certification metadata, provenance, lifecycle, persistence, API behavior, idempotency, optimistic concurrency, transactional outbox behavior, and executable conformance evidence.
 
 ## 2. Scope boundary
 
@@ -50,20 +50,20 @@ The increment must establish a tenant-isolated, attributable, versioned Capabili
 
 ## 3. Normative semantic model
 
-Capability describes an organization's physical ability. It must remain distinct from:
+Capability describes an organization's physical ability. It remains distinct from:
 
 - ResourceState: what physically exists.
 - Demand: what is required/accepted.
 - Transformation: the reusable input/output process definition.
 - Execution: what actually happened.
 
-Capability may reference Transformation definitions, but this increment must not manufacture or execute transformations.
+Capability may reference Transformation definitions, but this increment does not manufacture or execute transformations.
 
 A capability becoming `ACTIVE` does not make any ResourceState available and does not mutate Demand, Resource, or ResourceState.
 
 ## 4. Canonical fields
 
-The implementation must only persist fields with an explicit semantic role. The planned boundary is:
+The implemented boundary persists:
 
 - stable `id`;
 - owning `organization_id`;
@@ -79,15 +79,15 @@ The implementation must only persist fields with an explicit semantic role. The 
 - regulatory eligibility/constraints;
 - lifecycle `status`;
 - object `version`;
-- `created_by` / update attribution as required by the existing API conventions;
+- `created_by` attribution;
 - `provenance`;
 - `created_at` / `updated_at`.
 
-The API representation must use exact decimal strings for authoritative quantities and timezone-aware timestamps.
+The API representation uses exact decimal strings for authoritative quantities and timezone-aware timestamps.
 
 ## 5. Lifecycle
 
-The canonical lifecycle is:
+The implemented lifecycle is:
 
 ```text
 DRAFT
@@ -97,56 +97,53 @@ ACTIVE
 SUSPENDED / EXPIRED / REVOKED
 ```
 
-The implementation must explicitly define legal transitions rather than accepting arbitrary status changes. Terminal states must not be silently reactivated unless the normative contract explicitly permits it. Only an `ACTIVE` capability is eligible for later execution/routing consideration; this increment does not implement selection.
+Legal transitions are explicit. Terminal states are not silently reactivated. Only an `ACTIVE` capability is eligible for later execution/routing consideration; this increment does not implement selection.
 
 ## 6. Reference and ownership rules
 
 - A Capability belongs to exactly one organization.
-- Its Location reference, when supplied, must belong to the same organization unless the canonical specification explicitly defines a separately authorized shared location model; do not invent cross-tenant semantics.
-- Transformation references, when introduced, must not be interpreted as proof of transformation execution.
-- Actor attribution must belong to the authenticated organization.
-- Cross-tenant reads must behave as not-found/non-disclosure.
-- Cross-tenant writes/reference injection must be rejected.
+- Its Location reference must belong to the same organization.
+- Transformation references are not execution proof.
+- Actor attribution belongs to the authenticated organization.
+- Cross-tenant reads behave as not-found/non-disclosure.
+- Cross-tenant reference injection is rejected.
 
 ## 7. Validation rules
 
-At minimum, executable tests must cover:
+Executable coverage includes:
 
 - missing required fields;
 - unknown/invalid status;
 - illegal lifecycle transitions;
 - negative capacity;
 - non-string/floating-point authoritative decimal input;
-- malformed/excessive-precision decimal input where applicable;
-- zero capacity semantics where permitted by the normative rules;
-- unknown/incompatible units;
+- zero-capacity semantics;
+- unknown units;
 - inconsistent capacity/minimum-batch units;
 - naive operating-window timestamps;
-- end <= start;
+- invalid operating windows;
 - missing/invalid location ownership;
 - missing provenance;
-- unauthorized actor/scope;
-- revoked/inactive credentials;
-- cross-tenant reads/writes/reference injection;
-- stale version;
-- duplicate idempotency request;
-- reused idempotency key with different payload;
-- persistence constraint failure;
-- rollback when canonical mutation, idempotency record, or outbox event cannot commit;
-- PostgreSQL-specific behavior where SQLite cannot prove the invariant.
+- insufficient authorization;
+- cross-tenant reads/writes;
+- stale versions;
+- duplicate idempotency requests;
+- idempotency-key reuse with different payloads;
+- persistence and rollback behavior;
+- PostgreSQL migration/model/conformance behavior.
 
-Validation must occur before canonical mutation. Database constraints must protect identity/reference integrity where appropriate; application/domain validation remains authoritative for semantic relationships not safely expressible as relational constraints.
+Validation occurs before canonical mutation. Relational constraints protect identity/reference integrity while domain validation protects semantic relationships.
 
 ## 8. API contract
 
-Implement the documented v1 Capability endpoints:
+Implemented v1 endpoints:
 
 - `GET /v1/capabilities`
 - `POST /v1/capabilities`
 - `GET /v1/capabilities/{id}`
 - `PATCH /v1/capabilities/{id}`
 
-Mutation requirements:
+Mutation requirements are enforced:
 
 - authenticated principal;
 - `capabilities:write` or admin scope;
@@ -159,75 +156,78 @@ Mutation requirements:
 - lifecycle transitions delegated to the domain model;
 - no unrestricted physical execution mutation.
 
-Reads require `capabilities:read` and must not disclose another organization's object existence.
+Reads require `capabilities:read` and do not disclose another organization's object existence.
 
 ## 9. Persistence and migration
 
-Add an append-safe, versioned `capabilities` table and reversible Alembic migration based on the current migration head.
+The `capabilities` table is implemented with reversible Alembic migration `c4a1b2c3d4e5`, following Demand migration `b7f0d8d1e2c3`.
 
-The schema must include:
+The schema includes organization, location, and creator foreign keys; exact decimal capacity/minimum-batch storage; timezone-aware operating timestamps; structured JSON specifications/metadata; and tenant/status/window/location indexes.
 
-- organization foreign key;
-- location foreign key where represented;
-- actor foreign key for creator attribution;
-- exact decimal storage for authoritative quantities;
-- timezone-aware timestamps;
-- JSON fields only for genuinely structured semantic specifications/metadata;
-- indexes needed for tenant/status/window queries;
-- reference integrity constraints.
-
-The migration must upgrade, downgrade, and rebuild cleanly. SQLAlchemy metadata must match the migration under PostgreSQL CI.
+PostgreSQL CI verifies upgrade, downgrade, rebuild, SQLAlchemy migration/model alignment, and PostgreSQL conformance.
 
 ## 10. Events and idempotency
 
-Capability mutations must use the established transactional outbox/idempotency infrastructure.
+Capability mutations use the established transactional outbox/idempotency infrastructure.
 
 Event types:
 
 - `capability.created`
 - `capability.updated`
 
-Each event must identify capability ID, organization, actor, aggregate version, request/correlation context, event type/version, and provenance. No event may survive a failed canonical mutation transaction.
-
-Repeated equivalent idempotent mutations must return the existing logical effect without duplicate externally observable events. Reusing an idempotency key for a materially different request must return a conflict.
+Events identify capability ID, organization, actor, aggregate version, request/correlation context, event type/version, and provenance. Idempotent replays return the existing logical effect without duplicate events; key reuse with a different payload conflicts.
 
 ## 11. Test strategy
 
-Tests must be layered:
+Tests are layered across:
 
 1. Domain invariants and lifecycle.
 2. Persistence/exact decimal/reference behavior.
 3. API CRUD and serialization.
 4. Authorization and tenant isolation.
 5. Idempotency and optimistic concurrency.
-6. Failure/rollback behavior.
+6. Failure-path behavior.
 7. Migration lifecycle and SQLAlchemy alignment.
-8. PostgreSQL conformance for dialect/transaction/reference behavior.
-9. Regression suite for all existing Phase 1/2A behavior.
+8. PostgreSQL conformance.
+9. Regression coverage for existing Phase 1/2A behavior.
 
-Tests must prove intended behavior; no test may be weakened or removed to obtain green CI.
+The final CI run proves Ruff check, Ruff format, mypy, pytest, PostgreSQL migration lifecycle, model alignment, and PostgreSQL conformance all pass.
 
-## 12. Documentation synchronization
+## 12. Completion evidence
 
-After behavior is proven, synchronize only the affected documentation:
+- **PR:** #7 — `Phase 2B: Capability foundation`
+- **Final commit:** `d96baf83e7c209821e9bd4000d9105e8cb164161`
+- **Final CI run:** `39073522326`
+- **Test job:** `117515857902` — success
+- **PostgreSQL job:** `117515858033` — success
+- **Ruff check:** success
+- **Ruff format:** success
+- **mypy:** success
+- **pytest:** success
+- **PostgreSQL upgrade:** success
+- **PostgreSQL downgrade:** success
+- **PostgreSQL rebuild:** success
+- **Migration/model alignment:** success
+- **PostgreSQL conformance:** success
 
-- `docs/PHASE_2_PLAN.md` status/evidence for 2B as appropriate;
-- `docs/CRR_CONFORMANCE_MATRIX.md` implementation evidence if its structure supports it;
-- `docs/CRR_API_CONTRACT.md` only if externally observable Capability behavior needs clarification;
-- `docs/CRR_VALIDATION_AND_INVARIANTS.md` only where executable Capability validation needs explicit normative coverage.
+No 2B completion claim is based on documentation alone; executable behavior and both CI jobs are green.
 
-Do not mark 2B complete before CI and PostgreSQL evidence are green.
+## 13. Explicit exclusions from 2B
 
-## 13. Execution order
+This increment does not implement:
 
-1. Commit this plan first.
-2. Re-audit current Phase 1/2A auth, pagination, idempotency, outbox, exact-decimal, unit, migration, and error helpers.
-3. Implement the Capability domain model and tests.
-4. Implement persistence and migration.
-5. Implement API schemas and endpoints by reusing established infrastructure.
-6. Add security, reference-integrity, failure, idempotency, concurrency, and PostgreSQL tests.
-7. Run local format/lint/typecheck/tests/migrations.
-8. Open PR only after local checks are clean.
-9. Monitor GitHub CI; diagnose and fix every failure until all required jobs pass.
-10. Synchronize conformance documentation after behavior is proven.
-11. Provide the final commit, PR, and CI evidence with explicit remaining limitations.
+- Transformation object implementation or execution;
+- route computation;
+- graph search;
+- optimization;
+- Jev/LLM decision support;
+- commercial offers/agreements/transactions;
+- physical execution;
+- evidence verification;
+- autonomous actions;
+- a graph database;
+- new infrastructure not required by Capability semantics.
+
+## 14. Next phase
+
+Proceed to Phase 2C Transformation foundation only after PR #7 is merged to `main`. Re-audit the canonical protocol, domain model, API contract, validation/invariants, conformance matrix, and current implementation before creating the next phase plan.
