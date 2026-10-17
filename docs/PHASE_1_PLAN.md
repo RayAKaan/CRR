@@ -1,6 +1,6 @@
 # CRR Phase 1 Plan — Executable Foundation
 
-**Status:** Implementation in progress
+**Status:** Implemented; verification hardening in progress
 **Specification target:** CRR 0.1.1 with normative clarification 0.1.2
 
 ## Objective
@@ -61,6 +61,8 @@ The initial schema preserves append-only ResourceState snapshots and transition 
 
 There is no existing application schema to migrate. Add an initial versioned migration. Keep protocol semantics independent of PostgreSQL; choose the reference database only after confirming the local development/test setup. Any change to the transition representation must preserve existing state and audit history.
 
+The reference implementation now exercises the PostgreSQL migration path in CI in addition to the SQLite test path. CI also runs Ruff, formatting verification, mypy, and pytest.
+
 ## Documentation changes
 
 Resolve and amend the normative domain/validation/API documents before implementing the affected quantity and lifecycle rules. Update the conformance matrix if the resolved semantics change its requirements. Re-read affected documents after implementation and remove any discrepancy between plan, API, schema, and behavior.
@@ -78,4 +80,8 @@ Resolve and amend the normative domain/validation/API documents before implement
 
 ## Current implementation status
 
-The Phase 1 foundation is implemented in local commits on `phase1/executable-foundation` (initial implementation `72b8593`; latest code/test commit `48af273`). It includes the Python/FastAPI/SQLAlchemy API, exact decimal/versioned unit validation, tenant-scoped creation, detail, collection and history reads, cursor pagination, append-only state transitions, API-key scopes with least-privilege enforcement, idempotency, optimistic concurrency, a transactional outbox, Alembic schema migration, and CI configuration. Local verification: 23 tests pass; Ruff lint and formatting pass; Alembic migration/schema comparison passes; mypy passes for the canonical domain package. A full-package mypy run could not complete because the managed C: volume ran out of space while mypy initialized its SQLite cache; the generated cache was removed. The PostgreSQL migration path is authored but has not been exercised against a PostgreSQL server. The commit has not been pushed, so GitHub Actions has not run.
+The Phase 1 implementation is present on `main`, with the current verification-hardening work based directly on that repository state. The implementation includes the Python/FastAPI/SQLAlchemy API, exact decimal/versioned unit validation, tenant-scoped creation, detail, collection and history reads, cursor pagination, append-only state transitions, API-key scopes with least-privilege enforcement, idempotency, optimistic concurrency, a transactional outbox, Alembic schema migration, and CI configuration.
+
+Historical local verification established the existing unit/API/migration foundation, but that historical result is not treated as current proof. The remaining verification work is to make CI authoritative: run the full Ruff/format/mypy/pytest suite, exercise Alembic against PostgreSQL, add the missing concurrency and failure-mode coverage, and then perform a final specification/documentation audit before declaring Phase 1 complete.
+
+The current verification-hardening branch adds PostgreSQL migration checks and a reproducible mypy configuration. Phase 1 remains **implemented but not verified** until those checks pass on GitHub Actions and the remaining invariant/concurrency gaps are closed.
