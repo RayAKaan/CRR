@@ -1,6 +1,6 @@
 # CRR Phase 1 Plan — Executable Foundation
 
-**Status:** Implemented; conformance hardening in progress
+**Status:** Implemented; final conformance evidence still in progress
 **Specification target:** CRR 0.1.1 with normative clarification 0.1.2
 
 ## Objective
@@ -84,4 +84,6 @@ Resolve and amend the normative domain/validation/API documents before implement
 
 The Phase 1 implementation is present on `main`. It includes the Python/FastAPI/SQLAlchemy API, exact decimal/versioned unit validation, tenant-scoped creation, detail, collection and history reads, cursor pagination, append-only state transitions, API-key scopes with least-privilege enforcement, idempotency, optimistic concurrency, a transactional outbox, Alembic schema migration, and CI configuration.
 
-The first verification-hardening increment has already established green GitHub Actions for Ruff, formatting, mypy, pytest, PostgreSQL migration upgrade, and Alembic model alignment. The current conformance-hardening increment adds migration round-trip verification in both SQLite tests and PostgreSQL CI. Phase 1 is not declared fully complete until the remaining invariant/concurrency/failure-mode evidence and final specification audit are completed.
+The verification-hardening increments established green GitHub Actions for Ruff, formatting, mypy, pytest, PostgreSQL migration upgrade, and Alembic model alignment. The final conformance audit added executable evidence for least-privilege scope enforcement, credential revocation/inactive actors, idempotency payload conflicts, required mutation idempotency keys, exact scientific-decimal handling, and transactional rollback when outbox persistence conflicts. The migration suite continues to verify database-level append-only protections through migration rebuilds.
+
+Phase 1 is **not** declared fully complete yet. Dedicated evidence is still required for exhaustive cross-tenant history/list/write-reference cases, real parallel concurrency, the full quantity/unit negative and incompatible-input matrix, and the final API/specification conformance audit. These gaps are explicitly recorded in `docs/PHASE_1_FINAL_CONFORMANCE_AUDIT_PLAN.md` and must be closed before Phase 1 completion is claimed.
