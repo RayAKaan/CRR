@@ -55,12 +55,7 @@ class Capability:
     updated_at: datetime
 
     def __post_init__(self) -> None:
-        if (
-            not self.id
-            or not self.organization_id
-            or not self.location_id
-            or not self.created_by
-        ):
+        if not self.id or not self.organization_id or not self.location_id or not self.created_by:
             raise DomainError(
                 "Capability identity, organization, location, and creator are required."
             )
