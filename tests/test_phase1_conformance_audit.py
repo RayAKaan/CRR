@@ -8,8 +8,8 @@ from sqlalchemy.pool import StaticPool
 
 from crr.api import create_app
 from crr.models import (
-    Actor,
     APIKey,
+    Actor,
     Base,
     IdempotencyRecord,
     Organization,
