@@ -1,7 +1,7 @@
 from sqlalchemy import select
+from test_api_foundation import headers, make_client
 
 from crr.models import IdempotencyRecord, OutboxEvent
-from test_api_foundation import headers, make_client
 
 
 DEMAND = {
