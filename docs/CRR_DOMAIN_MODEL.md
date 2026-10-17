@@ -1,9 +1,74 @@
 # CRR Domain Model
 
-**Status:** Canonical domain model specification
-**Version:** 0.1
+**Status:** Canonical domain model specification  
+**Version:** 0.1  
+**Protocol:** Computational Resource Routing (CRR)  
+**Role:** Defines the canonical objects, relationships, semantics, lifecycle states, identity rules, and epistemic distinctions used throughout CRR.
 
-## 1. Domain graph
+> CRR is a proposed protocol/category specification. This document defines the project's canonical domain model; it does not claim that CRR is an existing external standard.
+
+---
+
+# 1. Domain model purpose
+
+The CRR domain model exists to represent the physical economy as a set of authoritative entities and relationships that can be validated, routed, transacted, executed, and verified.
+
+The central design decision is:
+
+> **ResourceState is the fundamental physical primitive. Resource is the stable identity and lineage container.**
+
+The domain must therefore distinguish:
+
+```text
+IDENTITY
+   ↓
+PHYSICAL STATE
+   ↓
+CAPABILITY / TRANSFORMATION
+   ↓
+ROUTE
+   ↓
+COMMERCIAL COMMITMENT
+   ↓
+EXECUTION
+   ↓
+EVIDENCE
+   ↓
+VERIFIED OUTCOME
+```
+
+---
+
+# 2. Canonical object inventory
+
+```text
+Organization
+Actor
+Location
+Resource
+ResourceState
+Demand
+Capability
+Transformation
+Route
+Decision
+Opportunity
+Offer
+Agreement
+Transaction
+Execution
+Evidence
+EconomicModel
+Event
+```
+
+These objects form the minimum canonical vocabulary.
+
+Additional implementation objects such as jobs, API keys, webhook subscriptions, projections, caches, embeddings, or UI models may exist, but they are not allowed to redefine canonical physical semantics.
+
+---
+
+# 3. Domain graph
 
 ```text
 Organization
@@ -16,215 +81,1006 @@ Organization
 Resource
  └─ has → ResourceState
 
+ResourceState
+ ├─ has → Location
+ ├─ has → Quantity
+ ├─ has → Quality
+ └─ has → Provenance
+
+Capability
+ └─ enables → Transformation
+
 Transformation
  ├─ consumes → ResourceState specification
  └─ produces → ResourceState specification
 
 Route
  ├─ starts from → ResourceState
+ ├─ contains → RouteLeg
  └─ terminates at → Demand / target state
+
+Decision
+ └─ evaluates → Candidate routes/options
 
 Opportunity
  └─ proposes → Route
 
+Offer
+ └─ proposes → Opportunity terms
+
+Agreement
+ └─ records → Accepted terms
+
 Transaction
- └─ executes → Opportunity
+ ├─ executes → Opportunity / Agreement
+ └─ references → Resource + Route
 
 Execution
- └─ produces → Evidence
+ └─ records → Actual operations
 
 Evidence
- └─ verifies → state/event/transaction claims
+ └─ supports/verifies → Claims about states/events/execution
+
+EconomicModel
+ └─ calculates → Value/cost outcome
 
 Event
- └─ records → protocol change
-
-Decision
- └─ records → selection reasoning
+ └─ records → Protocol state change or material observation
 ```
 
-## 2. Organization
+---
 
-Represents a participating legal or operational entity. It is the principal boundary for ownership, authorization and commercial participation.
+# 4. Common object metadata
 
-Required concepts:
+Every canonical object SHOULD contain the following conceptual metadata where applicable:
 
-- stable identity
-- legal/display identity
-- operating status
-- jurisdiction metadata
-- authorized actors
-- provenance
+- stable ID;
+- object type;
+- schema version;
+- object/revision version;
+- lifecycle status;
+- owning organization or authority;
+- created timestamp;
+- updated timestamp;
+- creator/actor;
+- provenance;
+- metadata/extensions.
 
-## 3. Actor
+Not every field is semantically applicable to every object. The protocol must not add meaningless fields merely for uniformity.
 
-Represents a human or service identity acting for an organization. Authorization is evaluated against organization, actor and scope.
+---
 
-## 4. Location
+# 5. Organization
 
-Represents a physical location used for resources, capabilities, processing, storage or delivery. Coordinates and address data must be valid and provenance-aware.
+An Organization represents a participating legal, commercial, operational, governmental, or other authorized entity.
 
-## 5. Resource
+## 5.1 Responsibilities
 
-Resource is the stable identity and lineage container. It should not be used as a substitute for physical state.
+An organization may:
 
-A resource can have multiple states over its lifecycle.
+- own resources;
+- create demands;
+- register capabilities;
+- define transformations;
+- participate in transactions;
+- provide evidence;
+- verify evidence if authorized;
+- integrate external systems.
 
-## 6. ResourceState
+## 5.2 Core concepts
 
-ResourceState is the fundamental physical primitive.
+An organization has:
 
-It includes:
+- stable identity;
+- legal/display identity;
+- operating status;
+- jurisdiction metadata;
+- authorized actors;
+- access policies;
+- provenance.
 
-- resource reference
-- state/material classification
-- quantity and unit
-- physical properties
-- quality
-- location
-- ownership/custody
-- availability
-- effective time
-- provenance
-- evidence references
-- predecessor lineage
+## 5.3 Ownership rule
 
-Historical physical states MUST NOT be destructively rewritten.
+Ownership and operational custody are distinct concepts. An organization may control a resource without being the ultimate legal owner, subject to the relevant implementation/policy model.
 
-## 7. Demand
+---
 
-Demand describes a required state and the conditions under which a participant will accept it.
+# 6. Actor
 
-Core fields:
+An Actor represents a human or service identity acting within an organization or authorized system context.
 
-- organization
-- required state
-- quantity
-- quality
-- location
-- time window
-- pricing
-- certifications
-- regulatory constraints
-- substitutions
-- lifecycle status
+Actors are used for:
 
-## 8. Capability
+- authentication;
+- authorization;
+- attribution;
+- approvals;
+- verification;
+- audit history;
+- machine-to-machine operations.
 
-Capability describes what an organization can do.
+An Actor cannot grant itself permissions merely by supplying an organization identifier.
 
-It references accepted inputs, transformations, outputs, capacity, operating windows, location, costs, certifications and regulatory eligibility.
+---
 
-## 9. Transformation
+# 7. Location
 
-Transformation defines a valid state transition. It is versioned and testable.
+Location represents a physical place relevant to the resource network.
 
-A transformation must declare its input specification, output specification, yield bounds, loss/residual semantics, duration, capacity, cost and applicable requirements.
+It can describe:
 
-## 10. Route
+- resource origin;
+- storage location;
+- facility;
+- processing site;
+- pickup location;
+- delivery location;
+- inspection site;
+- capability location.
 
-Route is an ordered plan consisting of transport and transformation legs.
+A location may contain:
 
-Supported leg types include:
+- coordinates;
+- address information;
+- jurisdiction;
+- location type;
+- provenance;
+- uncertainty/precision information.
 
-- `TRANSPORT`
-- `TRANSFORMATION`
-- `STORAGE`
-- `INSPECTION`
-- `TRANSFER`
-- `OTHER` as an extension where explicitly defined
+Coordinates must be valid when supplied. Location uncertainty must be explicit where it materially affects routing.
 
-A route is not evidence of execution.
+---
 
-## 11. Decision
+# 8. Resource
 
-Decision records how candidate routes or options were selected.
+A Resource is a stable identity and lineage container.
 
-It includes decision type, context hash, candidates, constraints, selected option, rationale, confidence, uncertainty, evidence references, provider/model information and escalation status.
+It is intentionally **not** the complete representation of physical reality.
 
-## 12. Opportunity
+A Resource can represent the continuing identity of a material or physical lineage while multiple ResourceStates represent its changing physical condition.
 
-Opportunity represents a commercially actionable possibility derived from a route.
+Conceptual fields include:
 
-It is not yet a binding transaction.
+- resource ID;
+- resource type/classification;
+- description;
+- origin;
+- owner;
+- current state reference;
+- lineage metadata;
+- provenance;
+- status.
 
-## 13. Offer
+A Resource with historical states must not be deleted in a way that destroys physical history.
 
-Offer expresses proposed commercial terms such as quantity, price, timing, route and conditions.
+---
 
-## 14. Agreement
+# 9. ResourceState
 
-Agreement records accepted commercial terms and obligations. External legal enforceability may depend on jurisdiction and external documents; CRR records the protocol-level state.
+`ResourceState` is the most important object in CRR.
 
-## 15. Transaction
+It represents a particular physical state at a point or interval in time.
 
-Transaction connects an accepted commercial arrangement to the resource and execution plan.
+Conceptual fields include:
 
-It maintains planned, actual and verified values separately.
+- `resource_id`;
+- state/material classification;
+- quantity;
+- unit;
+- physical properties;
+- quality;
+- location;
+- ownership/custody;
+- availability window;
+- condition;
+- effective time;
+- provenance;
+- evidence references;
+- predecessor state references;
+- balance/lineage information;
+- lifecycle status.
 
-## 16. Execution
+## 9.1 State semantics
 
-Execution is the operational record of carrying out a transaction.
+A state is not simply a row that can be overwritten whenever the resource changes.
 
-It contains ordered steps, responsible parties, planned/actual timestamps, quantities, exceptions and evidence references.
+Material physical changes create new states or equivalent versioned history.
 
-## 17. Evidence
+For example:
+
+```text
+100 t MIXED_ALUMINUM_SCRAP
+       ↓ sorting
+92 t CLEAN_ALUMINUM_SCRAP
+       ↓ melting
+88 t MOLTEN_ALUMINUM
+       ↓ casting
+86 t ALUMINUM_BILLET
+```
+
+The protocol must retain the relationships between these states and the declared losses/residuals.
+
+---
+
+# 10. ResourceState lineage
+
+Lineage supports:
+
+- split;
+- merge;
+- transformation;
+- external origin;
+- correction;
+- consumption;
+- partial fulfillment.
+
+A child state must reference its predecessor lineage unless it is explicitly introduced from an external origin.
+
+### Split
+
+```text
+PARENT
+ ├── CHILD A
+ ├── CHILD B
+ └── CHILD C
+```
+
+### Merge
+
+```text
+A ─┐
+B ─┼→ CHILD
+C ─┘
+```
+
+The applicable quantity balance must reconcile.
+
+---
+
+# 11. Demand
+
+Demand describes what a participant needs and the conditions under which it will accept a resource state.
+
+Core concepts:
+
+- organization;
+- required state specification;
+- quantity minimum/target/maximum;
+- quality requirements;
+- location constraints;
+- timing window;
+- pricing constraints;
+- certifications;
+- regulatory constraints;
+- substitutions;
+- recurrence;
+- remaining quantity;
+- lifecycle state.
+
+## 11.1 Demand status
+
+```text
+DRAFT
+  ↓
+ACTIVE
+  ↓
+PAUSED
+  ↓
+ACTIVE
+
+ACTIVE → FULFILLED
+ACTIVE → EXPIRED
+ACTIVE → CANCELLED
+ACTIVE → DISPUTED
+```
+
+Only active demand is eligible for ordinary routing.
+
+---
+
+# 12. Capability
+
+Capability describes what an organization can physically do.
+
+It can represent:
+
+- material acceptance;
+- processing;
+- transformation;
+- storage;
+- inspection;
+- logistics;
+- handling;
+- specialized services.
+
+Core concepts:
+
+- organization;
+- accepted inputs;
+- output specifications;
+- transformation references;
+- capacity;
+- operating windows;
+- minimum batch;
+- location;
+- processing cost;
+- certifications;
+- regulatory eligibility;
+- status;
+- provenance.
+
+## 12.1 Capability status
+
+```text
+DRAFT
+ ↓
+ACTIVE
+ ↓
+SUSPENDED / EXPIRED / REVOKED
+```
+
+A revoked or expired capability cannot be selected for execution.
+
+---
+
+# 13. Transformation
+
+A Transformation defines a permitted relationship between input and output states.
+
+It is a reusable process definition rather than an execution record.
+
+It should specify:
+
+1. accepted inputs;
+2. output specifications;
+3. process;
+4. yield bounds;
+5. loss/residual semantics;
+6. capacity;
+7. duration;
+8. cost;
+9. energy or auxiliary requirements where relevant;
+10. quality effects;
+11. regulatory requirements;
+12. eligible capabilities/locations.
+
+A transformation definition does not prove that a physical transformation happened.
+
+---
+
+# 14. Route
+
+A Route is an ordered plan connecting a source ResourceState to a target Demand or state.
+
+It contains route legs.
+
+Supported conceptual legs:
+
+- `TRANSPORT`;
+- `TRANSFORMATION`;
+- `STORAGE`;
+- `INSPECTION`;
+- `TRANSFER`;
+- extension-defined types.
+
+Every leg has expected input/output semantics.
+
+Example:
+
+```text
+S1: Mixed Scrap
+  ↓ TRANSPORT
+Facility B
+  ↓ TRANSFORMATION
+S2: Sorted Scrap
+  ↓ TRANSPORT
+Buyer C
+```
+
+A route is not proof of execution.
+
+---
+
+# 15. Decision
+
+A Decision records reasoning over a fixed candidate set.
+
+Conceptual fields:
+
+- decision ID;
+- decision type;
+- context hash;
+- candidate IDs;
+- authoritative constraints;
+- selected option;
+- rationale;
+- confidence;
+- uncertainty;
+- evidence references;
+- provider;
+- model/version;
+- deterministic validation result;
+- escalation requirement;
+- status.
+
+A Decision cannot create canonical physical facts.
+
+---
+
+# 16. Opportunity
+
+Opportunity represents a commercially actionable possibility derived from a feasible route.
+
+It connects:
+
+```text
+RESOURCE
+ +
+ROUTE
+ +
+DEMAND
+ +
+CAPABILITY
+ +
+PARTICIPANTS
+ +
+ECONOMICS
+ +
+REQUIREMENTS
+```
+
+Lifecycle:
+
+```text
+DISCOVERED
+   ↓
+VALIDATING
+   ↓
+PROPOSED
+   ↓
+APPROVED / REJECTED / EXPIRED
+```
+
+An Opportunity is not a transaction.
+
+---
+
+# 17. Offer
+
+An Offer contains proposed commercial terms.
+
+Core concepts:
+
+- opportunity;
+- proposer;
+- recipient;
+- quantity;
+- price;
+- currency;
+- delivery terms;
+- timing;
+- route assumptions;
+- conditions;
+- expiration;
+- status.
+
+An offer is a proposal, not proof of acceptance or execution.
+
+---
+
+# 18. Agreement
+
+Agreement records accepted commercial terms and obligations.
+
+It may reference:
+
+- one or more offers;
+- external contracts;
+- transaction terms;
+- evidence requirements;
+- delivery conditions;
+- payment terms;
+- acceptance conditions.
+
+External legal enforceability depends on applicable law and contractual context. CRR records protocol-level commercial state.
+
+An Agreement is not execution evidence.
+
+---
+
+# 19. Transaction
+
+Transaction connects the accepted commercial arrangement to physical resource movement and execution.
+
+It may contain:
+
+- agreement;
+- opportunity;
+- resource references;
+- route;
+- quantity;
+- price;
+- obligations;
+- execution reference;
+- evidence requirements;
+- economic model;
+- status.
+
+Reference lifecycle:
+
+```text
+DISCOVERED
+ → PROPOSED
+ → ACCEPTED
+ → AGREED
+ → SCHEDULED
+ → EXECUTING
+ → COMPLETED
+ → VERIFIED
+```
+
+`COMPLETED` means the protocol considers the transaction execution complete. `VERIFIED` means the required evidence has been accepted.
+
+---
+
+# 20. Execution
+
+Execution records actual operations.
+
+It contains:
+
+- transaction reference;
+- ordered steps;
+- responsible parties;
+- planned timestamps;
+- actual timestamps;
+- planned quantities;
+- actual quantities;
+- statuses;
+- exceptions;
+- evidence references.
+
+Execution must distinguish planned from actual values.
+
+Partial execution must remain explicitly partial.
+
+---
+
+# 21. Evidence
 
 Evidence is an attributable artifact or observation supporting a claim.
 
-Evidence requires issuer/submitter, capture time, subject reference, content reference/hash and verification status.
+Potential evidence types include:
 
-## 18. EconomicModel
+- weighbridge record;
+- laboratory report;
+- inspection report;
+- pickup record;
+- shipment record;
+- delivery receipt;
+- processing record;
+- buyer acceptance;
+- output measurement.
 
-Represents reproducible value and cost calculations, including currency, assumptions, components, calculation version and computed outcome.
+Conceptual fields:
 
-## 19. Event
+- evidence ID;
+- type;
+- subject reference;
+- issuer;
+- submitter;
+- capture timestamp;
+- content reference;
+- content hash;
+- verification status;
+- verifier;
+- verification timestamp;
+- supported claims.
 
-Event is an immutable record of a protocol state change or material observation.
+Lifecycle:
 
-## 20. Lifecycle states
+```text
+CLAIMED
+  ↓
+SUBMITTED
+  ↓
+VERIFIED
+```
 
-### ResourceState
+Alternative terminal outcomes:
 
-`DRAFT → ACTIVE → RESERVED → IN_TRANSIT → RECEIVED → PROCESSING → TRANSFORMED → CONSUMED → COMPLETED`
+```text
+SUBMITTED → REJECTED
+SUBMITTED → DISPUTED
+```
 
-Terminal/exception states include `CANCELLED` and `DISPUTED` where applicable.
+---
 
-### Demand
+# 22. EconomicModel
 
-`DRAFT → ACTIVE → PAUSED → FULFILLED | EXPIRED | CANCELLED | DISPUTED`
+EconomicModel represents reproducible calculations.
 
-### Capability
+It may contain:
 
-`DRAFT → ACTIVE → SUSPENDED | EXPIRED | REVOKED`
+- currency;
+- gross value;
+- supplier value;
+- buyer payment;
+- processing cost;
+- transport cost;
+- handling cost;
+- certification cost;
+- taxes/fees;
+- other components;
+- assumptions;
+- calculation version;
+- source references;
+- computed timestamp;
+- net outcome.
 
-### Opportunity
+The calculation must be reproducible from stored inputs and rules.
 
-`DISCOVERED → VALIDATING → PROPOSED → APPROVED | REJECTED | EXPIRED`
+---
 
-### Evidence
+# 23. Event
 
-`CLAIMED → SUBMITTED → VERIFIED | REJECTED | DISPUTED`
+An Event is an immutable record of a protocol state change or material observation.
 
-### Decision
+Recommended fields:
 
-`REQUESTED → EVALUATING → GENERATED → VALIDATED → ACCEPTED | REJECTED | ESCALATED`
+- event ID;
+- event type;
+- event version;
+- occurrence timestamp;
+- aggregate type;
+- aggregate ID;
+- aggregate version;
+- actor;
+- organization;
+- correlation ID;
+- causation ID;
+- idempotency key where applicable;
+- payload;
+- provenance;
+- schema version.
 
-## 21. Identity and metadata
+Events must not be used as a mutable shadow database that contradicts canonical state.
 
-Every canonical object MUST have a stable identifier, schema version, object version, provenance and timestamps appropriate to the object.
+---
 
-## 22. Precision
+# 24. Lifecycle state machines
 
-Quantities and economic values use exact decimal semantics. Binary floating-point values are not authoritative.
+## 24.1 ResourceState
 
-## 23. Planned versus actual versus verified
+```text
+DRAFT
+  ↓
+ACTIVE
+  ↓
+RESERVED
+  ↓
+IN_TRANSIT
+  ↓
+RECEIVED
+  ↓
+PROCESSING
+  ↓
+TRANSFORMED
+  ↓
+CONSUMED / COMPLETED
+```
 
-The domain model deliberately separates:
+Exceptions:
 
-- planned values;
-- actual observations;
-- submitted claims;
-- verified facts.
+```text
+CANCELLED
+DISPUTED
+```
 
-A planned quantity MUST NOT be presented as actual. An actual observation MUST NOT automatically become verified.
+Not every state transition applies to every resource type.
+
+## 24.2 Demand
+
+```text
+DRAFT
+  ↓
+ACTIVE
+  ↓
+PAUSED ↔ ACTIVE
+  ↓
+FULFILLED / EXPIRED / CANCELLED / DISPUTED
+```
+
+## 24.3 Capability
+
+```text
+DRAFT → ACTIVE → SUSPENDED / EXPIRED / REVOKED
+```
+
+## 24.4 Opportunity
+
+```text
+DISCOVERED → VALIDATING → PROPOSED → APPROVED
+                                      ↘ REJECTED
+                                      ↘ EXPIRED
+```
+
+## 24.5 Evidence
+
+```text
+CLAIMED → SUBMITTED → VERIFIED
+                   ↘ REJECTED
+                   ↘ DISPUTED
+```
+
+## 24.6 Decision
+
+```text
+REQUESTED → EVALUATING → GENERATED → VALIDATED
+                                      ↓
+                           ACCEPTED / REJECTED / ESCALATED
+```
+
+---
+
+# 25. Identity rules
+
+Every canonical object must have:
+
+- stable identity;
+- explicit type;
+- schema version;
+- object version where mutable;
+- provenance;
+- timestamps appropriate to its semantics.
+
+IDs should be opaque.
+
+Reference prefixes such as `res_`, `rst_`, `dem_`, `cap_`, `trn_`, `rte_`, `txn_`, and `evd_` are implementation conventions, not required semantic meanings.
+
+---
+
+# 26. Ownership and custody
+
+Ownership and custody must be distinguishable.
+
+Examples:
+
+```text
+LEGAL OWNER
+     ↓
+OPERATIONAL CUSTODIAN
+     ↓
+PHYSICAL LOCATION
+```
+
+A route requiring authority over a resource cannot execute when the relevant ownership/custody permission is unresolved.
+
+---
+
+# 27. Quantity and precision
+
+Quantities use exact decimal semantics.
+
+Example conceptual representation:
+
+```json
+{
+  "quantity": {
+    "value": "100.000",
+    "unit": "t"
+  }
+}
+```
+
+Binary floating-point must not be the authoritative representation.
+
+---
+
+# 28. Quality model
+
+Quality is resource-specific and may include:
+
+- composition;
+- grade;
+- purity;
+- contamination;
+- moisture;
+- temperature;
+- dimensions;
+- calorific value;
+- concentration;
+- mechanical properties.
+
+A quality value should retain its unit, measurement method/source, timestamp, and evidence where material.
+
+Unknown quality is not verified quality.
+
+---
+
+# 29. Provenance model
+
+Conceptual provenance:
+
+```json
+{
+  "source_type": "MANUAL | FILE | API | SYSTEM | EXTERNAL",
+  "source_id": "...",
+  "source_record_id": "...",
+  "captured_at": "...",
+  "captured_by": "...",
+  "method": "..."
+}
+```
+
+Confidence may be recorded, but confidence does not replace verification.
+
+---
+
+# 30. Derived versus canonical domain data
+
+Canonical:
+
+- resource states;
+- demands;
+- capabilities;
+- transformation definitions;
+- transactions;
+- verified evidence;
+- protocol events.
+
+Derived:
+
+- graph projections;
+- embeddings;
+- search indexes;
+- route scores;
+- rankings;
+- analytics aggregates;
+- UI projections.
+
+Derived objects are rebuildable and must not become the sole source of physical truth.
+
+---
+
+# 31. Planned, actual, claimed, verified
+
+The domain explicitly separates:
+
+| Category | Meaning |
+|---|---|
+| Planned | Intended future value |
+| Actual | Observed value during execution |
+| Claimed | Submitted assertion |
+| Verified | Evidence-backed accepted fact |
+
+This distinction is required because a planned route can fail, an actual observation can be wrong, a claim can be disputed, and evidence can be rejected.
+
+---
+
+# 32. Cross-object consistency rules
+
+The domain model requires:
+
+1. every ResourceState references a valid Resource;
+2. every Demand references a valid organization;
+3. every Capability references a valid organization;
+4. every Transformation has valid input/output specifications;
+5. every Route references a valid source and target;
+6. every Decision references an auditable candidate set;
+7. every Opportunity references a valid route;
+8. every Offer references a valid opportunity;
+9. every Agreement references accepted terms;
+10. every Transaction references valid commercial state;
+11. every Execution references a transaction;
+12. every Evidence references an existing subject;
+13. every Event references a valid aggregate where required;
+14. every verified outcome has required evidence.
+
+---
+
+# 33. Domain invariants
+
+The complete invariant registry is maintained in `CRR_VALIDATION_AND_INVARIANTS.md`. The core domain invariants are:
+
+- no negative physical quantity;
+- no ambiguous unit;
+- no broken lineage;
+- no silent physical history overwrite;
+- no route from invalid source state;
+- no route through inactive demand;
+- no route through revoked capability;
+- no transformation beyond declared yield bounds;
+- no capacity overcommitment;
+- no hard-constraint bypass;
+- no AI-created physical fact;
+- no transaction from invalid commercial state;
+- no execution treated as verification;
+- no unverified evidence treated as verified;
+- no cross-tenant access;
+- no duplicate event effect;
+- no derived projection overriding canonical state.
+
+---
+
+# 34. Reference end-to-end object chain
+
+```text
+Organization A
+    ↓ owns
+Resource R1
+    ↓ has
+ResourceState S1
+    ↓ evaluated against
+Demand D1
+    ↓ requires
+Capability C1
+    ↓ enables
+Transformation T1
+    ↓ produces
+ResourceState S2
+    ↓ participates in
+Route RTE1
+    ↓ evaluated by
+Decision DEC1
+    ↓ produces
+Opportunity O1
+    ↓ produces
+Offer OFF1
+    ↓ accepted into
+Agreement AGR1
+    ↓ creates
+Transaction TXN1
+    ↓ executed by
+Execution EXE1
+    ↓ produces
+Evidence EVD1
+    ↓ verified into
+Verified Outcome
+    ↓ emits
+Event EVT1
+```
+
+This chain is the domain-level representation of the complete CRR loop.
+
+---
+
+# 35. Protocol/domain separation
+
+The domain model defines semantics, not infrastructure.
+
+It does not require:
+
+- PostgreSQL;
+- a graph database;
+- FastAPI;
+- React;
+- Python;
+- Redis;
+- Celery;
+- Jev;
+- a specific cloud.
+
+An implementation may use any technology that preserves these domain semantics.
+
+---
+
+# 36. Relationship to other documents
+
+- `CRR_PROTOCOL_SPEC.md` defines protocol meaning.
+- `CRR_DOMAIN_MODEL.md` defines canonical domain objects and relationships.
+- `SYSTEM_DESIGN.md` maps these concepts into a reference system.
+- `CRR_DATA_FLOW_ARCHITECTURE.md` defines how data moves between them.
+- `CRR_DECISION_AND_ROUTING_SPEC.md` defines route and decision computation.
+- `CRR_API_CONTRACT.md` defines externally observable API behavior.
+- `CRR_VALIDATION_AND_INVARIANTS.md` defines enforcement rules.
+
+The domain model is the bridge between protocol semantics and implementation.
+
+---
+
+# 37. Final domain principle
+
+> **CRR models the physical economy as evolving resource states connected by capabilities, transformations, routes, commercial commitments, execution records, evidence, and verified outcomes.**
+
+The domain model must preserve the difference between identity, physical state, possibility, plan, agreement, execution, claim, and verified reality.
