@@ -7,7 +7,16 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from crr.api import create_app
-from crr.models import Actor, APIKey, Base, IdempotencyRecord, Organization, OutboxEvent, Resource
+from crr.models import (
+    Actor,
+    APIKey,
+    Base,
+    IdempotencyRecord,
+    Organization,
+    OutboxEvent,
+    Resource,
+    ResourceState,
+)
 
 
 NOW = datetime(2026, 10, 17, 12, 0, tzinfo=UTC)
@@ -45,7 +54,7 @@ def make_client(scopes: list[str] | None = None, *, org_id: str = "org_a"):
                 created_at=NOW,
             )
         )
-    return TestClient(create_app(factory)), token, engine, factory
+    return TestClient(create_app(factory)), token, factory
 
 
 def auth(token: str, key: str | None = None) -> dict[str, str]:
@@ -56,7 +65,7 @@ def auth(token: str, key: str | None = None) -> dict[str, str]:
 
 
 def test_least_privilege_scope_blocks_unrelated_mutation() -> None:
-    client, token, _engine, _factory = make_client(["locations:read"])
+    client, token, _factory = make_client(["locations:read"])
     response = client.post(
         "/v1/locations",
         headers=auth(token, "scope-test"),
@@ -67,7 +76,7 @@ def test_least_privilege_scope_blocks_unrelated_mutation() -> None:
 
 
 def test_revoked_key_and_inactive_actor_are_rejected() -> None:
-    client, token, engine, factory = make_client()
+    client, token, factory = make_client()
     with factory.begin() as session:
         key = session.scalar(select(APIKey).where(APIKey.id == "key_org_a"))
         assert key is not None
@@ -76,7 +85,7 @@ def test_revoked_key_and_inactive_actor_are_rejected() -> None:
     assert revoked.status_code == 401
     assert revoked.json()["error"]["code"] == "INVALID_CREDENTIAL"
 
-    client, token, engine, factory = make_client(org_id="org_c")
+    client, token, factory = make_client(org_id="org_c")
     with factory.begin() as session:
         actor = session.scalar(select(Actor).where(Actor.id == "act_org_c"))
         assert actor is not None
@@ -87,7 +96,7 @@ def test_revoked_key_and_inactive_actor_are_rejected() -> None:
 
 
 def test_idempotency_key_reuse_with_different_payload_is_conflict() -> None:
-    client, token, _engine, _factory = make_client()
+    client, token, _factory = make_client()
     first = client.post(
         "/v1/locations",
         headers=auth(token, "same-key"),
@@ -104,7 +113,7 @@ def test_idempotency_key_reuse_with_different_payload_is_conflict() -> None:
 
 
 def test_missing_idempotency_key_is_rejected_for_mutation() -> None:
-    client, token, _engine, _factory = make_client()
+    client, token, _factory = make_client()
     response = client.post(
         "/v1/locations",
         headers=auth(token),
@@ -114,8 +123,8 @@ def test_missing_idempotency_key_is_rejected_for_mutation() -> None:
     assert response.json()["error"]["code"] == "IDEMPOTENCY_KEY_REQUIRED"
 
 
-def test_canonical_quantity_rejects_scientific_notation_if_not_decimal_text() -> None:
-    client, token, _engine, _factory = make_client()
+def test_canonical_quantity_preserves_exact_scientific_decimal_input() -> None:
+    client, token, _factory = make_client()
     location = client.post(
         "/v1/locations",
         headers=auth(token, "location"),
@@ -143,10 +152,11 @@ def test_canonical_quantity_rejects_scientific_notation_if_not_decimal_text() ->
         },
     )
     assert response.status_code == 201
+    assert response.json()["data"]["quantity"]["value"] == "1E+3"
 
 
 def test_transaction_rollback_preserves_canonical_state_when_outbox_conflicts() -> None:
-    client, token, engine, factory = make_client()
+    client, token, factory = make_client()
     resource_id = "res_rollback"
     with factory.begin() as session:
         session.add(
@@ -193,7 +203,7 @@ def test_transaction_rollback_preserves_canonical_state_when_outbox_conflicts() 
 
 
 def test_database_history_guards_reject_direct_transition_and_outbox_mutation() -> None:
-    client, token, engine, factory = make_client()
+    client, token, factory = make_client()
     location = client.post(
         "/v1/locations",
         headers=auth(token, "history-location"),
@@ -216,7 +226,7 @@ def test_database_history_guards_reject_direct_transition_and_outbox_mutation() 
             "provenance": {"source_type": "MANUAL"},
         },
     ).json()["data"]
-    client.post(
+    transition = client.post(
         f"/v1/resource-states/{state['id']}/transitions",
         headers=auth(token, "history-transition") | {"If-Match": '"version-1"'},
         json={
@@ -229,9 +239,13 @@ def test_database_history_guards_reject_direct_transition_and_outbox_mutation() 
             "provenance": {"source_type": "MANUAL"},
         },
     )
+    assert transition.status_code == 201
+
     with factory() as session:
-        state_row = session.get(__import__("crr.models", fromlist=["ResourceState"]).ResourceState, state["id"])
-        event_row = session.scalar(select(OutboxEvent).where(OutboxEvent.idempotency_key == "history-transition"))
+        state_row = session.get(ResourceState, state["id"])
+        event_row = session.scalar(
+            select(OutboxEvent).where(OutboxEvent.idempotency_key == "history-transition")
+        )
         assert state_row is not None and event_row is not None
         state_row.quantity_value = state_row.quantity_value + 1
         event_row.payload = {"tampered": True}
