@@ -562,3 +562,8 @@ def patch_demand(
     item = _find(session, demand_id, principal.organization_id)
     response.headers["ETag"] = f'"version-{item.version}"'
     return _envelope(request, _data(item))
+
+
+from crr.capability_api import router as capability_router
+
+router.include_router(capability_router)
