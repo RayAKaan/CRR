@@ -24,10 +24,12 @@ class LocationCreate(InputModel):
 
     @model_validator(mode="after")
     def validate_coordinates(self):
-        if (self.latitude is None) != (self.longitude is None):
+        latitude = self.latitude
+        longitude = self.longitude
+        if (latitude is None) != (longitude is None):
             raise ValueError("Latitude and longitude must be supplied together.")
-        if self.latitude is not None:
-            lat, lon = exact_decimal(self.latitude), exact_decimal(self.longitude)
+        if latitude is not None and longitude is not None:
+            lat, lon = exact_decimal(latitude), exact_decimal(longitude)
             if not Decimal("-90") <= lat <= Decimal("90"):
                 raise ValueError("Latitude is out of range.")
             if not Decimal("-180") <= lon <= Decimal("180"):
