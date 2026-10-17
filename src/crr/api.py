@@ -310,6 +310,32 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
             _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Organization not found.")
         return _envelope(request, {"id": org.id, "name": org.name, "status": org.status})
 
+    @app.get("/v1/actors/{actor_id}")
+    def get_actor(
+        actor_id: str,
+        request: Request,
+        session: Annotated[Session, Depends(db_session)],
+        principal: Annotated[Principal, Depends(scope_required("actors:read"))],
+    ):
+        actor = session.scalar(
+            select(Actor).where(
+                Actor.id == actor_id,
+                Actor.organization_id == principal.organization_id,
+            )
+        )
+        if actor is None:
+            _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Actor not found.")
+        return _envelope(
+            request,
+            {
+                "id": actor.id,
+                "organization_id": actor.organization_id,
+                "name": actor.name,
+                "role": actor.role,
+                "active": actor.active,
+            },
+        )
+
     @app.post("/v1/actors", status_code=201)
     def create_actor(
         body: ActorCreate,
@@ -386,6 +412,36 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
             },
         )
 
+    @app.get("/v1/locations/{location_id}")
+    def get_location(
+        location_id: str,
+        request: Request,
+        session: Annotated[Session, Depends(db_session)],
+        principal: Annotated[Principal, Depends(scope_required("locations:read"))],
+    ):
+        item = session.scalar(
+            select(Location).where(
+                Location.id == location_id,
+                Location.organization_id == principal.organization_id,
+            )
+        )
+        if item is None:
+            _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Location not found.")
+        return _envelope(
+            request,
+            {
+                "id": item.id,
+                "organization_id": item.organization_id,
+                "name": item.name,
+                "address": item.address,
+                "latitude": item.latitude,
+                "longitude": item.longitude,
+                "jurisdiction": item.jurisdiction,
+                "provenance": item.provenance,
+                "created_at": item.created_at.isoformat(),
+            },
+        )
+
     @app.post("/v1/locations", status_code=201)
     def create_location(
         body: LocationCreate,
@@ -447,6 +503,44 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
             )
         return _envelope(
             request, {"id": item.id, "organization_id": item.organization_id, "name": item.name}
+        )
+
+    @app.get("/v1/resources/{resource_id}")
+    def get_resource(
+        resource_id: str,
+        request: Request,
+        session: Annotated[Session, Depends(db_session)],
+        principal: Annotated[Principal, Depends(scope_required("resources:read"))],
+    ):
+        item = session.scalar(
+            select(Resource).where(
+                Resource.id == resource_id,
+                Resource.organization_id == principal.organization_id,
+            )
+        )
+        if item is None:
+            _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Resource not found.")
+        latest_state = session.scalar(
+            select(ResourceState)
+            .where(
+                ResourceState.resource_id == item.id,
+                ResourceState.organization_id == principal.organization_id,
+            )
+            .order_by(ResourceState.resource_version.desc())
+            .limit(1)
+        )
+        return _envelope(
+            request,
+            {
+                "id": item.id,
+                "organization_id": item.organization_id,
+                "resource_type": item.resource_type,
+                "description": item.description,
+                "version": item.version,
+                "current_state_id": latest_state.id if latest_state else None,
+                "provenance": item.provenance,
+                "created_at": item.created_at.isoformat(),
+            },
         )
 
     @app.post("/v1/resources", status_code=201)
@@ -619,6 +713,23 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
                 "Database operation failed.",
             )
         response.headers["ETag"] = '"version-1"'
+        return _envelope(request, _state_data(item))
+
+    @app.get("/v1/resource-states/{state_id}")
+    def get_resource_state(
+        state_id: str,
+        request: Request,
+        session: Annotated[Session, Depends(db_session)],
+        principal: Annotated[Principal, Depends(scope_required("resources:read"))],
+    ):
+        item = session.scalar(
+            select(ResourceState).where(
+                ResourceState.id == state_id,
+                ResourceState.organization_id == principal.organization_id,
+            )
+        )
+        if item is None:
+            _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "ResourceState not found.")
         return _envelope(request, _state_data(item))
 
     @app.post("/v1/resource-states/{state_id}/transitions", status_code=201)

@@ -293,3 +293,49 @@ def test_untrusted_request_id_is_replaced_with_safe_generated_id() -> None:
     request_id = response.headers["X-Request-ID"]
     assert request_id.startswith("req_")
     assert len(request_id) <= 40
+
+
+def test_foundation_objects_have_tenant_scoped_detail_reads() -> None:
+    client, token, _engine = make_client()
+    actor = client.post(
+        "/v1/actors",
+        headers=headers(token, "actor-read-create"),
+        json={"name": "Operator", "role": "OPERATOR"},
+    ).json()["data"]
+    location = client.post(
+        "/v1/locations",
+        headers=headers(token, "location-read-create"),
+        json={"name": "Yard", "provenance": {"source_type": "MANUAL"}},
+    ).json()["data"]
+    resource = client.post(
+        "/v1/resources",
+        headers=headers(token, "resource-read-create"),
+        json={"resource_type": "ALUMINUM", "provenance": {"source_type": "MANUAL"}},
+    ).json()["data"]
+    state = client.post(
+        "/v1/resource-states",
+        headers=headers(token, "state-read-create"),
+        json={
+            "resource_id": resource["id"],
+            "state_type": "SCRAP",
+            "quantity": {
+                "value": "2.5",
+                "unit": "t",
+                "unit_registry_version": "CRR-UNITS-0.1",
+            },
+            "location_id": location["id"],
+            "effective_at": "2026-10-17T12:00:00Z",
+            "provenance": {"source_type": "MANUAL"},
+        },
+    ).json()["data"]
+    for path, object_id in (
+        ("actors", actor["id"]),
+        ("locations", location["id"]),
+        ("resources", resource["id"]),
+        ("resource-states", state["id"]),
+    ):
+        response = client.get(f"/v1/{path}/{object_id}", headers=headers(token))
+        assert response.status_code == 200, response.text
+    wrong_tenant, other_token, _other_engine = make_client("org_b")
+    hidden = wrong_tenant.get(f"/v1/resource-states/{state['id']}", headers=headers(other_token))
+    assert hidden.status_code == 404
