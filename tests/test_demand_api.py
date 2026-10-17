@@ -252,9 +252,7 @@ def test_zero_quantity_demand_is_valid_historical_requirement() -> None:
 
 def test_demand_patch_is_idempotent() -> None:
     client, token, _engine = make_client("org_patch_idempotent")
-    created = client.post(
-        "/v1/demands", headers=headers(token, "create-patch-demand"), json=DEMAND
-    )
+    created = client.post("/v1/demands", headers=headers(token, "create-patch-demand"), json=DEMAND)
     demand_id = created.json()["data"]["id"]
     patch = {"status": "ACTIVE"}
     first = client.patch(
