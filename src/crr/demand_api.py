@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -33,7 +33,7 @@ def _fail(request: Request, status: int, code: str, category: str, message: str)
     _api()._fail(request, status, code, category, message)
 
 
-def _envelope(request: Request, data: dict[str, Any]):
+def _envelope(request: Request, data: Any):
     return _api()._envelope(request, data)
 
 
@@ -59,31 +59,25 @@ def _scope_dependency(scope: str):
     return _api().scope_required(scope)
 
 
-def _principal_type():
-    return _api().Principal
-
-
 def _quantity(value: Decimal, unit: str, registry_version: str) -> Quantity:
     return Quantity(value, unit, registry_version)
 
 
 def _domain_from_model(item: Demand) -> DomainDemand:
+    quantities = [
+        _quantity(item.quantity_min_value, item.unit, item.unit_registry_version),
+        _quantity(item.quantity_target_value, item.unit, item.unit_registry_version),
+        _quantity(item.quantity_max_value, item.unit, item.unit_registry_version),
+        _quantity(item.remaining_quantity_value, item.unit, item.unit_registry_version),
+    ]
     return DomainDemand(
         id=item.id,
         organization_id=item.organization_id,
         required_state=item.required_state,
-        quantity_min=_quantity(
-            item.quantity_min_value, item.unit, item.unit_registry_version
-        ),
-        quantity_target=_quantity(
-            item.quantity_target_value, item.unit, item.unit_registry_version
-        ),
-        quantity_max=_quantity(
-            item.quantity_max_value, item.unit, item.unit_registry_version
-        ),
-        remaining_quantity=_quantity(
-            item.remaining_quantity_value, item.unit, item.unit_registry_version
-        ),
+        quantity_min=quantities[0],
+        quantity_target=quantities[1],
+        quantity_max=quantities[2],
+        remaining_quantity=quantities[3],
         status=DemandStatus(item.status),
         location_constraints=item.location_constraints,
         timing_start=item.timing_start,
@@ -252,31 +246,17 @@ def _validate_registry(request: Request, app, quantities: list[Quantity]):
         _fail(request, 422, exc.code, "VALIDATION_FAILURE", str(exc))
 
 
-def _validate_patch_against_current(
-    request: Request,
-    body: DemandPatch,
-    current: DomainDemand,
-    app,
-):
-    values = {
-        "required_state": body.required_state if body.required_state is not None else current.required_state,
-        "quantity_min": body.quantity_min
-        if body.quantity_min is not None
-        else current.quantity_min.value,
-        "quantity_target": body.quantity_target
-        if body.quantity_target is not None
-        else current.quantity_target.value,
-        "quantity_max": body.quantity_max
-        if body.quantity_max is not None
-        else current.quantity_max.value,
-        "unit": body.unit if body.unit is not None else current.quantity_min.unit,
-        "unit_registry_version": body.unit_registry_version
+def _patch_values(request: Request, body: DemandPatch, current: DomainDemand, app):
+    unit = body.unit if body.unit is not None else current.quantity_min.unit
+    registry_version = (
+        body.unit_registry_version
         if body.unit_registry_version is not None
-        else current.quantity_min.unit_registry_version,
-        "timing_start": body.timing_start if body.timing_start is not None else current.timing_start,
-        "timing_end": body.timing_end if body.timing_end is not None else current.timing_end,
-    }
-    if values["unit"] != current.quantity_min.unit or values["unit_registry_version"] != current.quantity_min.unit_registry_version:
+        else current.quantity_min.unit_registry_version
+    )
+    if (
+        unit != current.quantity_min.unit
+        or registry_version != current.quantity_min.unit_registry_version
+    ):
         _fail(
             request,
             422,
@@ -285,9 +265,9 @@ def _validate_patch_against_current(
             "Demand quantity units are immutable; create a new quantified demand instead.",
         )
     quantities = [
-        _quantity(values["quantity_min"], values["unit"], values["unit_registry_version"]),
-        _quantity(values["quantity_target"], values["unit"], values["unit_registry_version"]),
-        _quantity(values["quantity_max"], values["unit"], values["unit_registry_version"]),
+        _quantity(body.quantity_min or current.quantity_min.value, unit, registry_version),
+        _quantity(body.quantity_target or current.quantity_target.value, unit, registry_version),
+        _quantity(body.quantity_max or current.quantity_max.value, unit, registry_version),
     ]
     _validate_registry(request, app, quantities)
     if not quantities[0].value <= quantities[1].value <= quantities[2].value:
@@ -298,7 +278,9 @@ def _validate_patch_against_current(
             "VALIDATION_FAILURE",
             "Demand quantities must satisfy min <= target <= max.",
         )
-    if values["timing_start"] >= values["timing_end"]:
+    timing_start = body.timing_start or current.timing_start
+    timing_end = body.timing_end or current.timing_end
+    if timing_start >= timing_end:
         _fail(
             request,
             422,
@@ -314,7 +296,31 @@ def _validate_patch_against_current(
             "VALIDATION_FAILURE",
             "Remaining demand must remain within the declared bounds.",
         )
-    return values
+    return quantities, timing_start, timing_end
+
+
+def _find(session: Session, demand_id: str, organization_id: str):
+    return session.scalar(
+        select(Demand).where(
+            Demand.id == demand_id,
+            Demand.organization_id == organization_id,
+        )
+    )
+
+
+def _return_idempotent(session: Session, response: Response, request: Request, prior, organization_id: str):
+    item = _find(session, prior.object_id, organization_id)
+    if item is None:
+        _fail(
+            request,
+            409,
+            "IDEMPOTENCY_STATE_MISSING",
+            "DOMAIN_CONFLICT",
+            "Idempotent Demand result is unavailable.",
+        )
+    response.status_code = 200
+    response.headers["ETag"] = f'"version-{item.version}"'
+    return _envelope(request, _data(item))
 
 
 @router.get("/v1/demands")
@@ -356,31 +362,22 @@ def create_demand(
     digest = _body_hash(payload)
     prior = _check_idempotency(session, principal.organization_id, idempotency_key, digest, request)
     if prior:
-        item = session.scalar(
-            select(Demand).where(
-                Demand.id == prior.object_id,
-                Demand.organization_id == principal.organization_id,
-            )
-        )
-        if item is None:
-            _fail(request, 409, "IDEMPOTENCY_STATE_MISSING", "DOMAIN_CONFLICT", "Idempotent Demand result is unavailable.")
-        response.status_code = 200
-        response.headers["ETag"] = f'"version-{item.version}"'
-        return _envelope(request, _data(item))
+        return _return_idempotent(session, response, request, prior, principal.organization_id)
     now = datetime.now(UTC)
-    unit_min = _quantity(body.quantity_min, body.unit, body.unit_registry_version)
-    unit_target = _quantity(body.quantity_target, body.unit, body.unit_registry_version)
-    unit_max = _quantity(body.quantity_max, body.unit, body.unit_registry_version)
-    _validate_registry(request, request.app, [unit_min, unit_target, unit_max])
-    remaining = unit_target
+    quantities = [
+        _quantity(body.quantity_min, body.unit, body.unit_registry_version),
+        _quantity(body.quantity_target, body.unit, body.unit_registry_version),
+        _quantity(body.quantity_max, body.unit, body.unit_registry_version),
+    ]
+    _validate_registry(request, request.app, quantities)
     item = Demand(
         id=body.id or f"dem_{uuid4().hex}",
         organization_id=principal.organization_id,
         required_state=body.required_state,
-        quantity_min_value=unit_min.value,
-        quantity_target_value=unit_target.value,
-        quantity_max_value=unit_max.value,
-        remaining_quantity_value=remaining.value,
+        quantity_min_value=quantities[0].value,
+        quantity_target_value=quantities[1].value,
+        quantity_max_value=quantities[2].value,
+        remaining_quantity_value=quantities[1].value,
         unit=body.unit,
         unit_registry_version=body.unit_registry_version,
         status=body.status,
@@ -399,7 +396,6 @@ def create_demand(
         created_at=now,
         updated_at=now,
     )
-    domain = _domain_from_model(item)
     session.add(item)
     _remember(session, principal.organization_id, idempotency_key, digest, item.id)
     _emit(
@@ -409,7 +405,7 @@ def create_demand(
         principal.actor_id,
         "demand.created",
         item.id,
-        domain.version,
+        1,
         {"demand_id": item.id, "status": item.status},
         idempotency_key,
     )
@@ -417,23 +413,9 @@ def create_demand(
         session.commit()
     except IntegrityError:
         session.rollback()
-        prior = session.scalar(
-            select(IdempotencyRecord).where(
-                IdempotencyRecord.organization_id == principal.organization_id,
-                IdempotencyRecord.idempotency_key == idempotency_key,
-            )
-        )
-        if prior and prior.object_type == "Demand" and prior.request_hash == digest:
-            item = session.scalar(
-                select(Demand).where(
-                    Demand.id == prior.object_id,
-                    Demand.organization_id == principal.organization_id,
-                )
-            )
-            if item is not None:
-                response.status_code = 200
-                response.headers["ETag"] = f'"version-{item.version}"'
-                return _envelope(request, _data(item))
+        prior = _check_idempotency(session, principal.organization_id, idempotency_key, digest, request)
+        if prior:
+            return _return_idempotent(session, response, request, prior, principal.organization_id)
         _fail(request, 409, "CONFLICT", "DOMAIN_CONFLICT", "Demand creation conflicted.")
     except SQLAlchemyError:
         session.rollback()
@@ -449,16 +431,10 @@ def get_demand(
     session: Annotated[Session, Depends(_session_dependency())],
     principal: Annotated[Any, Depends(_scope_dependency("demands:read"))],
 ):
-    item = session.scalar(
-        select(Demand).where(
-            Demand.id == demand_id,
-            Demand.organization_id == principal.organization_id,
-        )
-    )
+    item = _find(session, demand_id, principal.organization_id)
     if item is None:
         _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Demand not found.")
-    response = _envelope(request, _data(item))
-    return response
+    return _envelope(request, _data(item))
 
 
 @router.patch("/v1/demands/{demand_id}")
@@ -477,29 +453,14 @@ def patch_demand(
     digest = _body_hash(payload | {"expected_version": expected, "demand_id": demand_id})
     prior = _check_idempotency(session, principal.organization_id, idempotency_key, digest, request)
     if prior:
-        item = session.scalar(
-            select(Demand).where(
-                Demand.id == prior.object_id,
-                Demand.organization_id == principal.organization_id,
-            )
-        )
-        if item is None:
-            _fail(request, 409, "IDEMPOTENCY_STATE_MISSING", "DOMAIN_CONFLICT", "Idempotent Demand result is unavailable.")
-        response.status_code = 200
-        response.headers["ETag"] = f'"version-{item.version}"'
-        return _envelope(request, _data(item))
-    item = session.scalar(
-        select(Demand).where(
-            Demand.id == demand_id,
-            Demand.organization_id == principal.organization_id,
-        )
-    )
+        return _return_idempotent(session, response, request, prior, principal.organization_id)
+    item = _find(session, demand_id, principal.organization_id)
     if item is None:
         _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Demand not found.")
     if item.version != expected:
         _fail(request, 412, "STALE_VERSION", "CONCURRENCY", "Demand version is stale.")
     current = _domain_from_model(item)
-    values = _validate_patch_against_current(request, body, current, request.app)
+    quantities, timing_start, timing_end = _patch_values(request, body, current, request.app)
     target_status = DemandStatus(body.status) if body.status is not None else current.status
     if target_status != current.status:
         try:
@@ -511,18 +472,18 @@ def patch_demand(
     else:
         next_version = current.version + 1
         updated_at = datetime.now(UTC)
-    values_to_update: dict[str, Any] = {
-        "required_state": values["required_state"],
-        "quantity_min_value": values["quantity_min"],
-        "quantity_target_value": values["quantity_target"],
-        "quantity_max_value": values["quantity_max"],
+    values: dict[str, Any] = {
+        "required_state": body.required_state or current.required_state,
+        "quantity_min_value": quantities[0].value,
+        "quantity_target_value": quantities[1].value,
+        "quantity_max_value": quantities[2].value,
         "status": target_status.value,
-        "timing_start": values["timing_start"].astimezone(UTC),
-        "timing_end": values["timing_end"].astimezone(UTC),
+        "timing_start": timing_start.astimezone(UTC),
+        "timing_end": timing_end.astimezone(UTC),
         "version": next_version,
         "updated_at": updated_at,
     }
-    mutable_json_fields = (
+    for field in (
         "location_constraints",
         "quality_requirements",
         "pricing_constraints",
@@ -531,11 +492,10 @@ def patch_demand(
         "substitutions",
         "recurrence",
         "provenance",
-    )
-    for field in mutable_json_fields:
+    ):
         value = getattr(body, field)
         if value is not None:
-            values_to_update[field] = value
+            values[field] = value
     result = session.execute(
         update(Demand)
         .where(
@@ -543,7 +503,7 @@ def patch_demand(
             Demand.organization_id == principal.organization_id,
             Demand.version == expected,
         )
-        .values(**values_to_update)
+        .values(**values)
     )
     if result.rowcount != 1:
         session.rollback()
@@ -564,32 +524,13 @@ def patch_demand(
         session.commit()
     except IntegrityError:
         session.rollback()
-        prior = session.scalar(
-            select(IdempotencyRecord).where(
-                IdempotencyRecord.organization_id == principal.organization_id,
-                IdempotencyRecord.idempotency_key == idempotency_key,
-            )
-        )
-        if prior and prior.object_type == "Demand" and prior.request_hash == digest:
-            item = session.scalar(
-                select(Demand).where(
-                    Demand.id == demand_id,
-                    Demand.organization_id == principal.organization_id,
-                )
-            )
-            if item is not None:
-                response.status_code = 200
-                response.headers["ETag"] = f'"version-{item.version}"'
-                return _envelope(request, _data(item))
+        prior = _check_idempotency(session, principal.organization_id, idempotency_key, digest, request)
+        if prior:
+            return _return_idempotent(session, response, request, prior, principal.organization_id)
         _fail(request, 409, "CONFLICT", "DOMAIN_CONFLICT", "Demand mutation conflicted.")
     except SQLAlchemyError:
         session.rollback()
         _fail(request, 503, "DATABASE_UNAVAILABLE", "DATABASE_FAILURE", "Database operation failed.")
-    item = session.scalar(
-        select(Demand).where(
-            Demand.id == demand_id,
-            Demand.organization_id == principal.organization_id,
-        )
-    )
+    item = _find(session, demand_id, principal.organization_id)
     response.headers["ETag"] = f'"version-{item.version}"'
     return _envelope(request, _data(item))
