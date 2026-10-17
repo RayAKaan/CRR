@@ -225,9 +225,7 @@ def test_float_quantity_is_rejected_at_canonical_boundary() -> None:
         ("t", "unknown-registry", 422),
     ],
 )
-def test_unit_validation_matrix(
-    unit: str, registry_version: str, expected_status: int
-) -> None:
+def test_unit_validation_matrix(unit: str, registry_version: str, expected_status: int) -> None:
     _engine, factory = _factory()
     _seed_tenant(factory, "org_unit", "token-unit")
     client = TestClient(create_app(factory))
@@ -279,7 +277,7 @@ def test_postgresql_parallel_successor_creation_has_one_winner() -> None:
                 organization_id=org_id,
                 actor_id=actor_id,
                 secret_hash=sha256(token.encode()).hexdigest(),
-                scopes=["admin:*"],
+                scopes=["admin:*"] ,
                 revoked=False,
                 created_at=NOW,
             )
