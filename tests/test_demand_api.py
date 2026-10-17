@@ -1,10 +1,7 @@
-from datetime import UTC, datetime
-
 from sqlalchemy import select
 
-from crr.demand_model import Demand
 from crr.models import IdempotencyRecord, OutboxEvent
-from tests.test_api_foundation import headers, make_client
+from test_api_foundation import headers, make_client
 
 
 DEMAND = {
@@ -30,7 +27,6 @@ DEMAND = {
 
 def test_demand_crud_idempotency_outbox_and_patch_concurrency() -> None:
     client, token, engine = make_client("org_demand")
-
     created = client.post(
         "/v1/demands",
         headers=headers(token, "demand-create"),
@@ -107,7 +103,11 @@ def test_demand_crud_idempotency_outbox_and_patch_concurrency() -> None:
                 IdempotencyRecord.object_type == "Demand",
             )
         ).all()
-    assert [row.event_type for row in events] == ["demand.created", "demand.updated", "demand.updated"]
+    assert [row.event_type for row in events] == [
+        "demand.created",
+        "demand.updated",
+        "demand.updated",
+    ]
     assert len(idempotency) == 3
 
 
