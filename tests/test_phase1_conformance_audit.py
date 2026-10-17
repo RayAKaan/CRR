@@ -8,8 +8,8 @@ from sqlalchemy.pool import StaticPool
 
 from crr.api import create_app
 from crr.models import (
-    APIKey,
     Actor,
+    APIKey,
     Base,
     IdempotencyRecord,
     Organization,
@@ -17,7 +17,6 @@ from crr.models import (
     Resource,
     ResourceState,
 )
-
 
 NOW = datetime(2026, 10, 17, 12, 0, tzinfo=UTC)
 
