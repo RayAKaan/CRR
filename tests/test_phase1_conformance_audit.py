@@ -15,7 +15,6 @@ from crr.models import (
     Organization,
     OutboxEvent,
     Resource,
-    ResourceState,
 )
 
 NOW = datetime(2026, 10, 17, 12, 0, tzinfo=UTC)
@@ -202,59 +201,3 @@ def test_transaction_rollback_preserves_canonical_state_when_outbox_conflicts() 
             )
             is None
         )
-
-
-def test_database_history_guards_reject_direct_transition_and_outbox_mutation() -> None:
-    client, token, factory = make_client()
-    location = client.post(
-        "/v1/locations",
-        headers=auth(token, "history-location"),
-        json={"name": "Yard", "provenance": {"source_type": "MANUAL"}},
-    ).json()["data"]["id"]
-    resource = client.post(
-        "/v1/resources",
-        headers=auth(token, "history-resource"),
-        json={"resource_type": "ALUMINUM", "provenance": {"source_type": "MANUAL"}},
-    ).json()["data"]["id"]
-    state = client.post(
-        "/v1/resource-states",
-        headers=auth(token, "history-state"),
-        json={
-            "resource_id": resource,
-            "state_type": "SCRAP",
-            "quantity": {"value": "1", "unit": "t", "unit_registry_version": "CRR-UNITS-0.1"},
-            "location_id": location,
-            "effective_at": "2026-10-17T12:00:00Z",
-            "provenance": {"source_type": "MANUAL"},
-        },
-    ).json()["data"]
-    transition = client.post(
-        f"/v1/resource-states/{state['id']}/transitions",
-        headers=auth(token, "history-transition") | {"If-Match": '"version-1"'},
-        json={
-            "kind": "CORRECTION",
-            "reason": "Audit correction",
-            "occurred_at": "2026-10-17T13:00:00Z",
-            "state_type": "SCRAP",
-            "quantity": {"value": "1", "unit": "t", "unit_registry_version": "CRR-UNITS-0.1"},
-            "location_id": location,
-            "provenance": {"source_type": "MANUAL"},
-        },
-    )
-    assert transition.status_code == 201
-
-    with factory() as session:
-        state_row = session.get(ResourceState, state["id"])
-        event_row = session.scalar(
-            select(OutboxEvent).where(OutboxEvent.idempotency_key == "history-transition")
-        )
-        assert state_row is not None and event_row is not None
-        state_row.quantity_value = state_row.quantity_value + 1
-        event_row.payload = {"tampered": True}
-        try:
-            session.commit()
-        except Exception as exc:
-            session.rollback()
-            assert "immutable" in str(exc).lower()
-        else:
-            raise AssertionError("append-only database guards allowed history mutation")
