@@ -88,8 +88,8 @@ CAPABILITY = {
 def prepare_location(engine, org_id: str) -> None:
     with engine.begin() as connection:
         connection.exec_driver_sql(
-            "INSERT INTO locations (id, organization_id, name, address, latitude, longitude, jurisdiction, provenance, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO locations (id, organization_id, name, address, latitude, longitude, "
+            "jurisdiction, provenance, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 "loc_capability",
                 org_id,
@@ -184,7 +184,11 @@ def test_capability_crud_idempotency_outbox_and_concurrency() -> None:
 def test_capability_tenant_isolation_and_scope() -> None:
     client_a, token_a, engine_a = make_client("org_cap_a")
     prepare_location(engine_a, "org_cap_a")
-    created = client_a.post("/v1/capabilities", headers=headers(token_a, "tenant-cap"), json=CAPABILITY)
+    created = client_a.post(
+        "/v1/capabilities",
+        headers=headers(token_a, "tenant-cap"),
+        json=CAPABILITY,
+    )
     assert created.status_code == 201
     capability_id = created.json()["data"]["id"]
 
@@ -193,7 +197,9 @@ def test_capability_tenant_isolation_and_scope() -> None:
     assert hidden.status_code == 404
     assert client_b.get("/v1/capabilities", headers=headers(token_b)).json()["data"] == []
 
-    limited, limited_token, limited_engine = make_client("org_cap_limited", scopes=["capabilities:read"])
+    limited, limited_token, limited_engine = make_client(
+        "org_cap_limited", scopes=["capabilities:read"]
+    )
     prepare_location(limited_engine, "org_cap_limited")
     assert limited.get("/v1/capabilities", headers=headers(limited_token)).status_code == 200
     denied = limited.post(
@@ -260,7 +266,11 @@ def test_capability_validation_and_lifecycle_fail_closed() -> None:
     )
     assert missing_location.status_code == 404
 
-    created = client.post("/v1/capabilities", headers=headers(token, "lifecycle-cap"), json=CAPABILITY)
+    created = client.post(
+        "/v1/capabilities",
+        headers=headers(token, "lifecycle-cap"),
+        json=CAPABILITY,
+    )
     capability_id = created.json()["data"]["id"]
     invalid_transition = client.patch(
         f"/v1/capabilities/{capability_id}",
@@ -273,7 +283,11 @@ def test_capability_validation_and_lifecycle_fail_closed() -> None:
 def test_capability_patch_idempotency() -> None:
     client, token, engine = make_client("org_cap_patch")
     prepare_location(engine, "org_cap_patch")
-    created = client.post("/v1/capabilities", headers=headers(token, "create-cap"), json=CAPABILITY)
+    created = client.post(
+        "/v1/capabilities",
+        headers=headers(token, "create-cap"),
+        json=CAPABILITY,
+    )
     capability_id = created.json()["data"]["id"]
     first = client.patch(
         f"/v1/capabilities/{capability_id}",
