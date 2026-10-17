@@ -10,7 +10,7 @@ from crr.api import create_app
 from crr.models import Actor, APIKey, Base, Organization
 
 
-def make_client(org_id: str = "org_a"):
+def make_client(org_id: str = "org_a", scopes: list[str] | None = None):
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -38,7 +38,7 @@ def make_client(org_id: str = "org_a"):
                 organization_id=org_id,
                 actor_id=f"act_{org_id}",
                 secret_hash=sha256(token.encode()).hexdigest(),
-                scopes=["admin:*"],
+                scopes=scopes or ["admin:*"],
                 revoked=False,
                 created_at=now,
             )
@@ -373,3 +373,15 @@ def test_collection_reads_are_tenant_scoped_and_cursor_paged() -> None:
     assert second_page["pagination"]["has_more"] is False
     resources_b = client_b.get("/v1/resources", headers=headers(token_b))
     assert resources_b.json()["data"] == []
+
+
+def test_api_key_scopes_are_least_privilege() -> None:
+    client, token, _engine = make_client("org_limited", scopes=["resources:read"])
+    assert client.get("/v1/resources", headers=headers(token)).status_code == 200
+    assert client.get("/v1/locations", headers=headers(token)).status_code == 403
+    denied_write = client.post(
+        "/v1/resources",
+        headers=headers(token, "resource-write"),
+        json={"resource_type": "ALUMINUM", "provenance": {"source_type": "MANUAL"}},
+    )
+    assert denied_write.status_code == 403
