@@ -1000,7 +1000,7 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
             unit_registry_version=new.quantity.unit_registry_version,
             location_id=new.location_id,
             effective_at=new.effective_at,
-            recorded_at=new.recorded_at,
+            recorded_at=datetime.now(UTC),
             created_by=new.created_by,
             provenance=dict(new.provenance),
             quality=dict(new.quality),
@@ -1086,6 +1086,9 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
         ).all()
         return _envelope(request, [_state_data(item) for item in states])
 
+    from crr.demand_api import router as demand_router
+
+    app.include_router(demand_router)
     return app
 
 
