@@ -1,6 +1,6 @@
 # CRR Phase 1 Plan — Executable Foundation
 
-**Status:** Implemented; verification hardening in progress
+**Status:** Implemented; conformance hardening in progress
 **Specification target:** CRR 0.1.1 with normative clarification 0.1.2
 
 ## Objective
@@ -61,7 +61,7 @@ The initial schema preserves append-only ResourceState snapshots and transition 
 
 There is no existing application schema to migrate. Add an initial versioned migration. Keep protocol semantics independent of PostgreSQL; choose the reference database only after confirming the local development/test setup. Any change to the transition representation must preserve existing state and audit history.
 
-The reference implementation now exercises the PostgreSQL migration path in CI in addition to the SQLite test path. CI also runs Ruff, formatting verification, mypy, and pytest.
+The reference implementation exercises both SQLite and PostgreSQL migration paths. PostgreSQL CI now verifies a complete `upgrade → downgrade → upgrade → alembic check` lifecycle. The SQLite migration test verifies the same round trip and confirms that database-level append-only history protections are recreated after the rebuild. CI also runs Ruff, formatting verification, mypy, and pytest.
 
 ## Documentation changes
 
@@ -75,13 +75,13 @@ Resolve and amend the normative domain/validation/API documents before implement
 - ResourceState transitions are explicit, attributable, concurrency-checked, idempotent, and history-preserving.
 - Cross-tenant access is denied and tested at service/API boundaries.
 - Tests cover valid transitions and the failure modes listed above.
+- SQLite and PostgreSQL migration lifecycles are reversible and rebuildable.
+- Database-level append-only history protections survive migration rebuilds.
 - Relevant documentation agrees with externally observable behavior.
 - Test/lint/type-check results and the resulting Git commit are identifiable.
 
 ## Current implementation status
 
-The Phase 1 implementation is present on `main`, with the current verification-hardening work based directly on that repository state. The implementation includes the Python/FastAPI/SQLAlchemy API, exact decimal/versioned unit validation, tenant-scoped creation, detail, collection and history reads, cursor pagination, append-only state transitions, API-key scopes with least-privilege enforcement, idempotency, optimistic concurrency, a transactional outbox, Alembic schema migration, and CI configuration.
+The Phase 1 implementation is present on `main`. It includes the Python/FastAPI/SQLAlchemy API, exact decimal/versioned unit validation, tenant-scoped creation, detail, collection and history reads, cursor pagination, append-only state transitions, API-key scopes with least-privilege enforcement, idempotency, optimistic concurrency, a transactional outbox, Alembic schema migration, and CI configuration.
 
-Historical local verification established the existing unit/API/migration foundation, but that historical result is not treated as current proof. The remaining verification work is to make CI authoritative: run the full Ruff/format/mypy/pytest suite, exercise Alembic against PostgreSQL, add the missing concurrency and failure-mode coverage, and then perform a final specification/documentation audit before declaring Phase 1 complete.
-
-The current verification-hardening branch adds PostgreSQL migration checks and a reproducible mypy configuration. Phase 1 remains **implemented but not verified** until those checks pass on GitHub Actions and the remaining invariant/concurrency gaps are closed.
+The first verification-hardening increment has already established green GitHub Actions for Ruff, formatting, mypy, pytest, PostgreSQL migration upgrade, and Alembic model alignment. The current conformance-hardening increment adds migration round-trip verification in both SQLite tests and PostgreSQL CI. Phase 1 is not declared fully complete until the remaining invariant/concurrency/failure-mode evidence and final specification audit are completed.

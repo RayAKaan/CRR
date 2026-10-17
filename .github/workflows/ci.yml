@@ -45,6 +45,14 @@ jobs:
         env:
           CRR_DATABASE_URL: postgresql+psycopg://crr:crr@localhost:5432/crr
         run: alembic upgrade head
+      - name: Downgrade database
+        env:
+          CRR_DATABASE_URL: postgresql+psycopg://crr:crr@localhost:5432/crr
+        run: alembic downgrade base
+      - name: Rebuild database
+        env:
+          CRR_DATABASE_URL: postgresql+psycopg://crr:crr@localhost:5432/crr
+        run: alembic upgrade head
       - name: Verify migration model alignment
         env:
           CRR_DATABASE_URL: postgresql+psycopg://crr:crr@localhost:5432/crr
