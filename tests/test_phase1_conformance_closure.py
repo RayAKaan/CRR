@@ -334,7 +334,7 @@ def test_postgresql_parallel_successor_creation_has_one_winner() -> None:
         "occurred_at": "2026-10-17T12:01:00Z",
         "state_type": "ALUMINUM",
         "quantity": {
-            "value": "9.000",
+            "value": "10.000",
             "unit": "t",
             "unit_registry_version": "CRR-UNITS-0.1",
         },
