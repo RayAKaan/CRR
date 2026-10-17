@@ -308,7 +308,13 @@ def _find(session: Session, demand_id: str, organization_id: str):
     )
 
 
-def _return_idempotent(session: Session, response: Response, request: Request, prior, organization_id: str):
+def _return_idempotent(
+    session: Session,
+    response: Response,
+    request: Request,
+    prior,
+    organization_id: str,
+):
     item = _find(session, prior.object_id, organization_id)
     if item is None:
         _fail(
@@ -321,6 +327,16 @@ def _return_idempotent(session: Session, response: Response, request: Request, p
     response.status_code = 200
     response.headers["ETag"] = f'"version-{item.version}"'
     return _envelope(request, _data(item))
+
+
+def _database_failure(request: Request):
+    _fail(
+        request,
+        503,
+        "DATABASE_UNAVAILABLE",
+        "DATABASE_FAILURE",
+        "Database operation failed.",
+    )
 
 
 @router.get("/v1/demands")
@@ -413,13 +429,19 @@ def create_demand(
         session.commit()
     except IntegrityError:
         session.rollback()
-        prior = _check_idempotency(session, principal.organization_id, idempotency_key, digest, request)
+        prior = _check_idempotency(
+            session,
+            principal.organization_id,
+            idempotency_key,
+            digest,
+            request,
+        )
         if prior:
             return _return_idempotent(session, response, request, prior, principal.organization_id)
         _fail(request, 409, "CONFLICT", "DOMAIN_CONFLICT", "Demand creation conflicted.")
     except SQLAlchemyError:
         session.rollback()
-        _fail(request, 503, "DATABASE_UNAVAILABLE", "DATABASE_FAILURE", "Database operation failed.")
+        _database_failure(request)
     response.headers["ETag"] = '"version-1"'
     return _envelope(request, _data(item))
 
@@ -524,13 +546,19 @@ def patch_demand(
         session.commit()
     except IntegrityError:
         session.rollback()
-        prior = _check_idempotency(session, principal.organization_id, idempotency_key, digest, request)
+        prior = _check_idempotency(
+            session,
+            principal.organization_id,
+            idempotency_key,
+            digest,
+            request,
+        )
         if prior:
             return _return_idempotent(session, response, request, prior, principal.organization_id)
         _fail(request, 409, "CONFLICT", "DOMAIN_CONFLICT", "Demand mutation conflicted.")
     except SQLAlchemyError:
         session.rollback()
-        _fail(request, 503, "DATABASE_UNAVAILABLE", "DATABASE_FAILURE", "Database operation failed.")
+        _database_failure(request)
     item = _find(session, demand_id, principal.organization_id)
     response.headers["ETag"] = f'"version-{item.version}"'
     return _envelope(request, _data(item))
