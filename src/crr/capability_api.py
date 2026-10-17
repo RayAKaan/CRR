@@ -122,7 +122,13 @@ def _data(item: Capability) -> dict[str, Any]:
     }
 
 
-def _check_idempotency(session: Session, organization_id: str, key: str | None, digest: str, request: Request):
+def _check_idempotency(
+    session: Session,
+    organization_id: str,
+    key: str | None,
+    digest: str,
+    request: Request,
+):
     if not key or not key.strip() or len(key) > 255:
         _fail(
             request,
@@ -203,9 +209,21 @@ def _parse_if_match(request: Request, value: str | None) -> int:
     try:
         version = int(token)
     except ValueError:
-        _fail(request, 400, "INVALID_PRECONDITION", "CONCURRENCY", "If-Match must contain a positive version.")
+        _fail(
+            request,
+            400,
+            "INVALID_PRECONDITION",
+            "CONCURRENCY",
+            "If-Match must contain a positive version.",
+        )
     if version < 1:
-        _fail(request, 400, "INVALID_PRECONDITION", "CONCURRENCY", "If-Match must contain a positive version.")
+        _fail(
+            request,
+            400,
+            "INVALID_PRECONDITION",
+            "CONCURRENCY",
+            "If-Match must contain a positive version.",
+        )
     return version
 
 
@@ -227,10 +245,22 @@ def _find(session: Session, capability_id: str, organization_id: str):
     )
 
 
-def _return_idempotent(session: Session, response: Response, request: Request, prior, organization_id: str):
+def _return_idempotent(
+    session: Session,
+    response: Response,
+    request: Request,
+    prior,
+    organization_id: str,
+):
     item = _find(session, prior.object_id, organization_id)
     if item is None:
-        _fail(request, 409, "IDEMPOTENCY_STATE_MISSING", "DOMAIN_CONFLICT", "Idempotent Capability result is unavailable.")
+        _fail(
+            request,
+            409,
+            "IDEMPOTENCY_STATE_MISSING",
+            "DOMAIN_CONFLICT",
+            "Idempotent Capability result is unavailable.",
+        )
     response.status_code = 200
     response.headers["ETag"] = f'"version-{item.version}"'
     return _envelope(request, _data(item))
@@ -255,7 +285,13 @@ def list_capabilities(
         statement = statement.where(Capability.id > cursor)
     if status is not None:
         if status not in {item.value for item in CapabilityStatus}:
-            _fail(request, 422, "INVALID_STATUS", "VALIDATION_FAILURE", "Unknown Capability status.")
+            _fail(
+                request,
+                422,
+                "INVALID_STATUS",
+                "VALIDATION_FAILURE",
+                "Unknown Capability status.",
+            )
         statement = statement.where(Capability.status == status)
     if location_id is not None:
         statement = statement.where(Capability.location_id == location_id)
@@ -336,7 +372,13 @@ def create_capability(
         session.commit()
     except IntegrityError:
         session.rollback()
-        prior = _check_idempotency(session, principal.organization_id, idempotency_key, digest, request)
+        prior = _check_idempotency(
+            session,
+            principal.organization_id,
+            idempotency_key,
+            digest,
+            request,
+        )
         if prior:
             return _return_idempotent(session, response, request, prior, principal.organization_id)
         _fail(request, 409, "CONFLICT", "DOMAIN_CONFLICT", "Capability creation conflicted.")
@@ -357,8 +399,7 @@ def get_capability(
     item = _find(session, capability_id, principal.organization_id)
     if item is None:
         _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Capability not found.")
-    response = _envelope(request, _data(item))
-    return response
+    return _envelope(request, _data(item))
 
 
 @router.patch("/v1/capabilities/{capability_id}")
@@ -400,8 +441,16 @@ def patch_capability(
             "Capability capacity units are immutable; create a new quantified capability instead.",
         )
     capacity = _quantity(capacity_value, unit, registry_version)
-    minimum_value = body.minimum_batch if body.minimum_batch is not None else current.minimum_batch.value if current.minimum_batch else None
-    minimum_batch = _quantity(minimum_value, unit, registry_version) if minimum_value is not None else None
+    if body.minimum_batch is not None:
+        minimum_value = body.minimum_batch
+    elif current.minimum_batch is not None:
+        minimum_value = current.minimum_batch.value
+    else:
+        minimum_value = None
+    minimum_batch = (
+        _quantity(minimum_value, unit, registry_version)
+        if minimum_value is not None
+        else None
     _validate_quantities(request, request.app, capacity, minimum_batch)
     location_id = body.location_id or current.location_id
     location = session.scalar(
@@ -450,17 +499,41 @@ def patch_capability(
     except DomainError as exc:
         _fail(request, 422, "CAPABILITY_VALIDATION_FAILED", "VALIDATION_FAILURE", str(exc))
     values: dict[str, Any] = {
-        "accepted_inputs": body.accepted_inputs if body.accepted_inputs is not None else item.accepted_inputs,
-        "output_specifications": body.output_specifications if body.output_specifications is not None else item.output_specifications,
-        "transformation_ids": body.transformation_ids if body.transformation_ids is not None else item.transformation_ids,
+        "accepted_inputs": (
+            body.accepted_inputs
+            if body.accepted_inputs is not None
+            else item.accepted_inputs
+        ),
+        "output_specifications": (
+            body.output_specifications
+            if body.output_specifications is not None
+            else item.output_specifications
+        ),
+        "transformation_ids": (
+            body.transformation_ids
+            if body.transformation_ids is not None
+            else item.transformation_ids
+        ),
         "capacity_value": capacity.value,
         "minimum_batch_value": minimum_batch.value if minimum_batch is not None else None,
         "location_id": location.id,
         "operating_window_start": start,
         "operating_window_end": end,
-        "processing_cost": body.processing_cost if body.processing_cost is not None else item.processing_cost,
-        "certifications": body.certifications if body.certifications is not None else item.certifications,
-        "regulatory_constraints": body.regulatory_constraints if body.regulatory_constraints is not None else item.regulatory_constraints,
+        "processing_cost": (
+            body.processing_cost
+            if body.processing_cost is not None
+            else item.processing_cost
+        ),
+        "certifications": (
+            body.certifications
+            if body.certifications is not None
+            else item.certifications
+        ),
+        "regulatory_constraints": (
+            body.regulatory_constraints
+            if body.regulatory_constraints is not None
+            else item.regulatory_constraints
+        ),
         "status": target_status.value,
         "version": next_version,
         "updated_at": updated_at,
@@ -488,14 +561,24 @@ def patch_capability(
         "capability.updated",
         capability_id,
         next_version,
-        {"capability_id": capability_id, "status": target_status.value, "version": next_version},
+        {
+            "capability_id": capability_id,
+            "status": target_status.value,
+            "version": next_version,
+        },
         idempotency_key,
     )
     try:
         session.commit()
     except IntegrityError:
         session.rollback()
-        prior = _check_idempotency(session, principal.organization_id, idempotency_key, digest, request)
+        prior = _check_idempotency(
+            session,
+            principal.organization_id,
+            idempotency_key,
+            digest,
+            request,
+        )
         if prior:
             return _return_idempotent(session, response, request, prior, principal.organization_id)
         _fail(request, 409, "CONFLICT", "DOMAIN_CONFLICT", "Capability mutation conflicted.")
