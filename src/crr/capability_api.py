@@ -288,7 +288,13 @@ def list_capabilities(
         statement = statement.where(Capability.id > cursor)
     if status is not None:
         if status not in {item.value for item in CapabilityStatus}:
-            _fail(request, 422, "INVALID_STATUS", "VALIDATION_FAILURE", "Unknown Capability status.")
+            _fail(
+                request,
+                422,
+                "INVALID_STATUS",
+                "VALIDATION_FAILURE",
+                "Unknown Capability status.",
+            )
         statement = statement.where(Capability.status == status)
     if location_id is not None:
         statement = statement.where(Capability.location_id == location_id)
@@ -332,7 +338,7 @@ def create_capability(
         capacity_value=capacity.value,
         unit=capacity.unit,
         unit_registry_version=capacity.unit_registry_version,
-        minimum_batch_value=minimum_batch.value if minimum_batch else None,
+        minimum_batch_value=minimum_batch.value if minimum_batch is not None else None,
         location_id=location.id,
         operating_window_start=body.operating_window_start.astimezone(UTC),
         operating_window_end=body.operating_window_end.astimezone(UTC),
@@ -348,7 +354,15 @@ def create_capability(
     )
     session.add(item)
     _remember(session, principal.organization_id, idempotency_key, digest, item.id)
-    _event(session, request, principal.organization_id, principal.actor_id, "capability.created", item, idempotency_key)
+    _event(
+        session,
+        request,
+        principal.organization_id,
+        principal.actor_id,
+        "capability.created",
+        item,
+        idempotency_key,
+    )
     try:
         session.commit()
     except IntegrityError:
@@ -412,7 +426,8 @@ def patch_capability(
             "VALIDATION_FAILURE",
             "Capability capacity units are immutable; create a new quantified capability instead.",
         )
-    capacity = _quantity(body.capacity or current.capacity.value, unit, registry_version)
+    capacity_value = body.capacity if body.capacity is not None else current.capacity.value
+    capacity = _quantity(capacity_value, unit, registry_version)
     minimum_value = body.minimum_batch
     if minimum_value is None and current.minimum_batch is not None:
         minimum_value = current.minimum_batch.value
@@ -422,7 +437,8 @@ def patch_capability(
         else None
     )
     _validate_units(request, capacity, minimum_batch)
-    location = _location(request, session, body.location_id or current.location_id, principal.organization_id)
+    location_id = body.location_id or current.location_id
+    location = _location(request, session, location_id, principal.organization_id)
     start = (body.operating_window_start or current.operating_window_start).astimezone(UTC)
     end = (body.operating_window_end or current.operating_window_end).astimezone(UTC)
     status = CapabilityStatus(body.status) if body.status else current.status
@@ -486,7 +502,15 @@ def patch_capability(
         _fail(request, 412, "STALE_VERSION", "CONCURRENCY", "Capability version is stale.")
     _remember(session, principal.organization_id, idempotency_key, digest, capability_id)
     updated = _find(session, capability_id, principal.organization_id)
-    _event(session, request, principal.organization_id, principal.actor_id, "capability.updated", updated, idempotency_key)
+    _event(
+        session,
+        request,
+        principal.organization_id,
+        principal.actor_id,
+        "capability.updated",
+        updated,
+        idempotency_key,
+    )
     try:
         session.commit()
     except IntegrityError:
