@@ -1,8 +1,7 @@
 from sqlalchemy import select
 
-from test_api_foundation import headers, make_client
-
 from crr.models import IdempotencyRecord, OutboxEvent
+from test_api_foundation import headers, make_client
 
 
 DEMAND = {
@@ -185,7 +184,9 @@ def test_demand_validation_and_lifecycle_fail_closed() -> None:
     assert naive.status_code == 422
 
     unknown_unit = client.post(
-        "/v1/demands", headers=headers(token, "unit-demand"), json=DEMAND | {"unit": "unknown"}
+        "/v1/demands",
+        headers=headers(token, "unit-demand"),
+        json=DEMAND | {"unit": "unknown"},
     )
     assert unknown_unit.status_code == 422
 
