@@ -1,17 +1,33 @@
 # CRR Decision and Routing Specification
 
-**Status:** Normative decision/routing specification
-**Version:** 0.1
+**Status:** Normative decision and routing specification  
+**Version:** 0.1  
+**Protocol:** Computational Resource Routing (CRR)  
+**Role:** Defines how CRR discovers candidate routes, validates feasibility, computes economics, ranks feasible routes, and uses bounded decision support.
 
-## 1. Purpose
+> CRR is a proposed technical/category specification. This document defines the project's routing and decision semantics; it is not an existing external industry standard.
 
-The routing system determines which physically, operationally, legally/safely and economically feasible path a resource can take toward a valid demand or target state.
+---
 
-The system does not answer only “who wants this?” It answers:
+# 1. Purpose
 
-> What is the highest-value executable next state or route that can be justified by the available physical, economic, operational and regulatory evidence?
+The routing system determines which physically, operationally, legally/safely, temporally, and economically feasible path a resource can take toward a valid demand or target state.
 
-## 2. Routing pipeline
+CRR therefore does not answer only:
+
+> Who wants this?
+
+It answers:
+
+> **What is the highest-value executable next state or route that can be justified by available physical, operational, economic, regulatory, and evidentiary information?**
+
+Routing is a computation over canonical reality. Decision support is a bounded layer over already validated candidates.
+
+---
+
+# 2. Core routing principle
+
+The routing pipeline is:
 
 ```text
 SOURCE RESOURCE STATE
@@ -41,12 +57,62 @@ DECISION SUPPORT
 RANKED FEASIBLE ROUTES
 ```
 
-## 3. Hard constraints
+The order is conceptual. Independent checks may execute in parallel, but the semantic dependency is preserved.
 
-Hard constraints are authoritative blockers. Examples:
+---
+
+# 3. Routing inputs
+
+A routing request requires sufficient context to determine a valid source and target.
+
+Conceptually:
+
+```json
+{
+  "source_resource_state_id": "rst_123",
+  "target_demand_id": "dem_123",
+  "constraints": {},
+  "optimization": {},
+  "decision_mode": "optional",
+  "valid_until": "2026-10-18T12:00:00Z"
+}
+```
+
+The request must reference canonical objects rather than allowing clients to invent authoritative state inline.
+
+---
+
+# 4. Candidate discovery
+
+Candidate discovery is intentionally permissive compared with feasibility validation.
+
+It may use:
+
+- exact classifications;
+- normalized attributes;
+- semantic search;
+- graph traversal;
+- geographic proximity;
+- capability indexes;
+- historical outcomes;
+- embeddings.
+
+Candidate discovery can produce false positives.
+
+The next layers determine whether candidates are actually feasible.
+
+---
+
+# 5. Hard constraints
+
+Hard constraints are authoritative blockers.
+
+Examples:
 
 - insufficient quantity;
 - incompatible physical state;
+- incompatible quality;
+- invalid unit conversion;
 - unavailable capability;
 - insufficient capacity;
 - impossible location/time requirement;
@@ -55,46 +121,50 @@ Hard constraints are authoritative blockers. Examples:
 - prohibited material/process combination;
 - ownership/custody conflict;
 - impossible transformation yield;
-- invalid unit conversion;
 - required evidence absent where execution cannot proceed.
 
-A route failing a hard constraint MUST be infeasible.
+A route failing a hard constraint MUST be marked infeasible.
 
-## 4. Candidate route structure
+No score, probability, model confidence, or Jev output can change that.
 
-A route contains:
+---
 
-- source state;
-- target demand/state;
-- ordered legs;
-- resource transformations;
-- transport requirements;
-- capacity reservations;
-- timing;
-- regulatory checks;
-- economic model;
-- decision reference;
-- validity/expiry.
+# 6. Physical feasibility
 
-## 5. Leg semantics
+Physical feasibility asks whether the route could actually occur in the physical world.
 
-Transport legs move a physical state between locations.
+Checks include:
 
-Transformation legs change the state.
+- input state compatibility;
+- material classification;
+- quality compatibility;
+- quantity availability;
+- transformation input requirements;
+- output requirements;
+- conservation/yield rules;
+- physical process constraints;
+- location transitions;
+- storage/handling requirements.
 
-Each leg consumes an expected input and produces an expected output. The next leg must accept the previous leg's output.
+A route that is semantically similar but physically impossible is rejected.
 
-## 6. Capacity
+---
 
-Available capacity is capacity minus existing commitments/reservations for the relevant time window.
+# 7. Quantity and yield
 
-The routing engine MUST NOT schedule more than available capacity.
+All authoritative quantities use exact decimal semantics.
 
-## 7. Quantity and yield
+For applicable transformations:
 
-All quantity calculations use exact decimal semantics.
+```text
+INPUT QUANTITY
+      ↓
+YIELD / LOSS / RESIDUAL MODEL
+      ↓
+OUTPUT QUANTITY
+```
 
-Transformation output is bounded by declared yield rules. Where conservation applies:
+Where conservation applies:
 
 ```text
 inputs = outputs + declared losses/residuals ± explicit tolerance
@@ -102,48 +172,281 @@ inputs = outputs + declared losses/residuals ± explicit tolerance
 
 Silent loss is invalid.
 
-## 8. Geographic routing
+The transformation's declared bounds constrain possible outputs.
 
-Distance and travel time are computed from authoritative locations and routing assumptions. A client or model cannot alter distance merely to make economics pass.
+---
 
-## 9. Economics
+# 8. Capacity
 
-The economic model must be reproducible:
+Available capacity is generally:
 
 ```text
-value
-- acquisition/payment
-- transport
-- processing
-- handling
-- certification
-- applicable fees/taxes
-= net outcome
+DECLARED CAPACITY
+- EXISTING COMMITMENTS
+- EXISTING RESERVATIONS
+- PROTECTED CAPACITY
+=
+AVAILABLE CAPACITY
+```
+
+The router must account for time-window overlap.
+
+A route cannot reserve capacity already committed to an incompatible operation.
+
+Concurrent route proposals must be revalidated before commitment.
+
+---
+
+# 9. Timing
+
+Routing must consider:
+
+- source availability;
+- demand window;
+- facility operating window;
+- processing duration;
+- transport duration;
+- inspection time;
+- storage constraints;
+- reservation windows;
+- expiration.
+
+A route whose required operation occurs outside an authoritative availability window is infeasible.
+
+A route can become stale if any material timing assumption changes.
+
+---
+
+# 10. Geographic routing
+
+Distance and travel time are derived from authoritative locations and explicit routing assumptions.
+
+A geographic calculation may include:
+
+- straight-line distance for candidate filtering;
+- road-network distance for economics;
+- estimated travel time;
+- transport restrictions;
+- location eligibility.
+
+A client, model, or ranking function cannot alter authoritative location merely to make a route economically viable.
+
+Distance calculations must remain reproducible from stored location and routing assumptions.
+
+---
+
+# 11. Logistics
+
+A transport leg represents movement of a physical state.
+
+It may require:
+
+- vehicle capacity;
+- loading constraints;
+- handling requirements;
+- timing;
+- permitted routes;
+- hazardous-material handling where applicable;
+- pickup and delivery windows;
+- transport cost.
+
+A transport leg is a plan. It is not proof that shipment occurred.
+
+Shipment proof belongs to execution/evidence.
+
+---
+
+# 12. Transformation feasibility
+
+A transformation leg is valid only if:
+
+1. input state satisfies input specification;
+2. capability is active;
+3. required capacity exists;
+4. operating window permits execution;
+5. output is within declared specification;
+6. yield/loss model is coherent;
+7. regulatory/safety requirements are satisfied;
+8. economics are calculated.
+
+A transformation definition cannot be used as evidence of actual transformation.
+
+---
+
+# 13. Regulatory and safety validation
+
+The routing engine must represent applicable eligibility requirements.
+
+Examples:
+
+- authorization;
+- certification;
+- material restrictions;
+- hazardous handling;
+- facility eligibility;
+- transport restrictions;
+- jurisdictional requirements.
+
+The protocol does not attempt to replace jurisdiction-specific legal counsel or regulatory authorities.
+
+Where a material regulatory question cannot be deterministically resolved, the system must escalate rather than invent permission.
+
+---
+
+# 14. Economics
+
+Economic computation is deterministic.
+
+A reference model is:
+
+```text
+RESOURCE / BUYER VALUE
+- ACQUISITION / PAYMENT
+- TRANSPORT
+- PROCESSING
+- HANDLING
+- CERTIFICATION
+- TAXES / FEES
+= NET ECONOMIC OUTCOME
 ```
 
 All assumptions and calculation versions are recorded.
 
-Negative net value is a valid mathematical outcome but is economically infeasible when the selected objective requires non-negative value.
+A negative net outcome is a valid mathematical result. It becomes economically infeasible only when the route's objective/policy requires non-negative or minimum economic value.
 
-## 10. Ranking
+---
 
-Only feasible routes may be ranked.
+# 15. Economic perspectives
 
-A reference ranking may combine:
+CRR may calculate multiple economic perspectives:
+
+### Supplier economics
+
+```text
+avoided disposal / recovery value
++ sale value
+- supplier-side incremental costs
+= supplier outcome
+```
+
+### Processor economics
+
+```text
+processing revenue / material value
+- processing cost
+- handling
+- energy / auxiliary costs
+= processor outcome
+```
+
+### Buyer economics
+
+```text
+avoided virgin-material purchase
+- delivered resource cost
+- qualification / processing cost
+= buyer outcome
+```
+
+### Logistics economics
+
+```text
+transport revenue
+- transport operating cost
+= logistics outcome
+```
+
+### Network economics
+
+The platform may calculate transaction fees or service value separately from physical economics.
+
+The protocol must not silently combine participant economics into one number without labeling the perspective.
+
+---
+
+# 16. Optimization
+
+Optimization operates only over routes that have passed hard feasibility.
+
+Potential objectives include:
+
+- maximum net economic value;
+- minimum total cost;
+- minimum transport distance/time;
+- maximum resource recovery;
+- maximum reliability;
+- minimum transformation risk;
+- minimum environmental impact where the metric is valid and evidenced;
+- balanced multi-objective optimization.
+
+Every optimization result must expose the objective and version used.
+
+---
+
+# 17. Ranking
+
+A reference ranking can combine:
 
 - economic value;
 - distance/time;
-- confidence/evidence quality;
+- evidence quality;
 - capacity reliability;
 - transformation risk;
-- delivery timing;
-- quality compatibility.
+- timing fit;
+- quality compatibility;
+- historical execution performance.
 
-Weights and scoring versions MUST be recorded.
+Weights must be explicit when weights are used.
 
-A score can rank feasible options but cannot make an infeasible option feasible.
+A ranking score is not truth.
 
-## 11. Jev decision layer
+A score can order feasible routes but cannot legalize, authorize, or physically validate a route.
+
+---
+
+# 18. Candidate set integrity
+
+Once the decision stage begins, the candidate set must be fixed or content-addressed.
+
+A decision record must be able to answer:
+
+- which candidates existed;
+- which candidates were feasible;
+- which constraints were applied;
+- which economic assumptions were used;
+- which candidates were passed to Jev;
+- which candidate was selected;
+- why the selected candidate was accepted.
+
+Jev cannot introduce an unseen candidate as though it had been part of the validated candidate set.
+
+---
+
+# 19. Decision architecture
+
+```text
+ROUTE CANDIDATES
+      ↓
+DETERMINISTIC VALIDATION
+      ↓
+CANDIDATE SET
+      ↓
+STRUCTURED DECISION CONTEXT
+      ↓
+DECISION PROVIDER
+      ↓
+STRUCTURED RESULT
+      ↓
+DETERMINISTIC FACT CHECK
+      ↓
+ACCEPT / REJECT / ESCALATE
+```
+
+The decision layer does not own physical truth.
+
+---
+
+# 20. Jev decision boundary
 
 Jev may assist with:
 
@@ -152,20 +455,29 @@ Jev may assist with:
 - candidate prioritization;
 - qualitative tradeoffs;
 - contextual interpretation;
-- escalation decisions;
-- explanation.
+- explanation;
+- escalation recommendations.
 
-Jev may not:
+Jev cannot:
 
-- override deterministic constraints;
-- invent facts;
+- override hard constraints;
+- invent organizations;
+- invent capabilities;
+- invent demand;
+- invent quantities;
 - create capacity;
-- invent regulations;
+- invent regulatory permission;
 - fabricate evidence;
-- execute transactions;
-- write canonical physical state directly.
+- change authoritative location;
+- change authoritative economic inputs;
+- directly mutate canonical state;
+- directly execute transactions.
 
-## 12. Decision contract
+Jev is therefore a bounded provider, not a system-of-record component.
+
+---
+
+# 21. Decision request contract
 
 A decision request contains:
 
@@ -175,7 +487,9 @@ A decision request contains:
 - evidence references;
 - economic context;
 - uncertainty;
-- allowed action space.
+- allowed action space;
+- relevant policy;
+- context hash.
 
 A decision result contains:
 
@@ -185,33 +499,241 @@ A decision result contains:
 - uncertainty;
 - evidence references;
 - provider/model/version;
-- escalation flag;
-- validation result.
+- deterministic validation result;
+- escalation requirement.
 
-The selected candidate must belong to the original candidate set and must pass deterministic validation.
+The selected candidate must belong to the candidate set and pass deterministic validation.
 
-## 13. Fallback
+---
+
+# 22. AI output validation
+
+AI/provider output is untrusted input.
+
+It must be validated for:
+
+- schema correctness;
+- candidate membership;
+- reference existence;
+- hard-constraint compliance;
+- numerical validity;
+- regulatory claims;
+- evidence claims;
+- authority boundaries.
+
+Adversarial tests should include:
+
+- hallucinated organizations;
+- hallucinated capabilities;
+- hallucinated demand;
+- fabricated evidence;
+- impossible quantities;
+- invalid units;
+- nonexistent candidates;
+- invented regulations;
+- prompt injection through resource descriptions;
+- attempts to trigger unauthorized execution.
+
+---
+
+# 23. Fallback behavior
 
 If Jev is unavailable:
 
 1. deterministic routing continues where possible;
-2. contextual decisions may fall back to deterministic rules;
+2. deterministic ranking can continue when sufficient;
 3. ambiguous cases escalate to human review;
-4. the system never silently changes hard-constraint semantics.
+4. no hard-constraint semantics change;
+5. no canonical state is corrupted;
+6. the provider failure is recorded.
 
-## 14. Route lifecycle
+The system must never silently treat Jev failure as authorization to bypass decision controls.
 
-`GENERATED → VALIDATING → FEASIBLE | INFEASIBLE → SELECTED | REJECTED → EXPIRED`
+---
 
-The exact implementation may use separate status and validation fields, but the semantic distinction must remain.
+# 24. Route lifecycle
 
-## 15. Route expiry
+Reference lifecycle:
 
-A route becomes stale when relevant source state, demand, capability, price, capacity, authorization or other validity assumptions change beyond the recorded validity boundary.
+```text
+GENERATED
+    ↓
+VALIDATING
+    ↓
+FEASIBLE / INFEASIBLE
+    ↓
+SELECTED / REJECTED
+    ↓
+EXPIRED
+```
 
-Stale routes must be revalidated before execution.
+The exact implementation may separate status and validation fields, but the semantic distinction must remain.
 
-## 16. Routing invariants
+---
+
+# 25. Route validity and staleness
+
+A route becomes stale when material assumptions change, including:
+
+- source quantity;
+- source location;
+- source quality;
+- demand status;
+- demand quantity;
+- capability status;
+- capability capacity;
+- transformation version;
+- regulatory authorization;
+- transport assumptions;
+- price assumptions;
+- economic model validity;
+- timing windows.
+
+A stale route must be revalidated before execution.
+
+---
+
+# 26. Route explainability
+
+Every route should be explainable in terms of:
+
+```text
+SOURCE
+TARGET
+LEGS
+CONSTRAINTS PASSED
+CONSTRAINTS FAILED
+CAPACITY
+TIMING
+LOGISTICS
+TRANSFORMATIONS
+ECONOMICS
+OBJECTIVE
+SCORE
+DECISION
+EXPIRY
+```
+
+The explanation is derived from authoritative inputs and recorded calculations rather than generated solely from free-form model text.
+
+---
+
+# 27. Route rejection reasons
+
+Machine-readable rejection reasons should include:
+
+- `INSUFFICIENT_QUANTITY`;
+- `UNIT_INCOMPATIBLE`;
+- `QUALITY_MISMATCH`;
+- `CAPABILITY_INACTIVE`;
+- `CAPACITY_INSUFFICIENT`;
+- `TIME_WINDOW_CONFLICT`;
+- `LOCATION_INFEASIBLE`;
+- `REGULATORY_BLOCK`;
+- `SAFETY_BLOCK`;
+- `OWNERSHIP_CONFLICT`;
+- `TRANSFORMATION_UNAVAILABLE`;
+- `YIELD_INVALID`;
+- `ECONOMIC_INFEASIBILITY`;
+- `DEMAND_EXPIRED`;
+- `EVIDENCE_REQUIRED`.
+
+Each rejection should identify the relevant rule and object reference where possible.
+
+---
+
+# 28. Commercial conversion
+
+Only feasible routes may produce normal opportunities.
+
+```text
+FEASIBLE ROUTE
+      ↓
+OPPORTUNITY
+      ↓
+OFFER
+      ↓
+AGREEMENT
+      ↓
+TRANSACTION
+```
+
+An opportunity may expire if route assumptions change.
+
+A transaction cannot be created from a route that has become stale without revalidation.
+
+---
+
+# 29. Reservation semantics
+
+Routing and transaction commitment must distinguish:
+
+- candidate capacity;
+- soft reservation;
+- hard reservation;
+- committed capacity;
+- actual consumption.
+
+A routing calculation should not silently imply a physical capacity reservation.
+
+Capacity becomes committed only through an explicit transactional operation.
+
+---
+
+# 30. Execution boundary
+
+The routing engine proposes.
+
+The commercial system commits.
+
+The execution system records.
+
+Evidence verifies.
+
+```text
+ROUTING
+  ≠
+EXECUTION
+  ≠
+VERIFICATION
+```
+
+This distinction prevents a computational plan from becoming a false physical claim.
+
+---
+
+# 31. Reference routing algorithm
+
+A reference implementation may follow:
+
+```text
+1. Load canonical source ResourceState.
+2. Validate source availability.
+3. Resolve active target Demand.
+4. Discover candidate capabilities.
+5. Discover candidate transformations.
+6. Build candidate route graphs.
+7. Evaluate hard constraints.
+8. Reject invalid routes.
+9. Calculate physical feasibility.
+10. Calculate capacity/time feasibility.
+11. Calculate logistics.
+12. Calculate regulatory/safety eligibility.
+13. Calculate deterministic economics.
+14. Optimize/rank feasible routes.
+15. Build decision context.
+16. Optionally invoke Jev.
+17. Validate provider output.
+18. Select or escalate.
+19. Record route/decision provenance.
+20. Return ranked feasible candidates.
+```
+
+This is a reference algorithm, not a requirement that every implementation use the same code structure.
+
+---
+
+# 32. Routing invariants
 
 1. Every route has a valid source.
 2. Every route has a valid target.
@@ -225,7 +747,43 @@ Stale routes must be revalidated before execution.
 10. Required transformation exists.
 11. Economics are reproducible.
 12. Scores never override feasibility.
-13. Decision candidates are fixed and auditable.
+13. Candidate sets are fixed for decision evaluation.
 14. Jev cannot create facts.
 15. Expired routes cannot execute.
-16. Actual execution cannot be inferred from a route alone.
+16. Actual execution cannot be inferred from route existence.
+17. Stale routes must be revalidated.
+18. Route calculations remain auditable.
+19. Reservation does not equal execution.
+20. Execution does not equal verification.
+
+---
+
+# 33. Relationship to validation specification
+
+`CRR_VALIDATION_AND_INVARIANTS.md` contains the complete cross-domain validation registry.
+
+This document defines routing/decision-specific semantics. Where the routing engine and validation layer overlap, the stricter protocol invariant applies.
+
+---
+
+# 34. Final routing principle
+
+> **CRR may use increasingly sophisticated computation to find better routes, but sophistication must never reduce the authority of physical reality, hard constraints, evidence, or explicit authorization.**
+
+The routing system is therefore:
+
+```text
+DISCOVER BROADLY
+      ↓
+VALIDATE STRICTLY
+      ↓
+CALCULATE DETERMINISTICALLY
+      ↓
+OPTIMIZE EXPLICITLY
+      ↓
+ADVISE CONTEXTUALLY
+      ↓
+EXECUTE DELIBERATELY
+      ↓
+VERIFY EMPIRICALLY
+```
