@@ -49,7 +49,7 @@ class QuantityInput(InputModel):
 
     @field_validator("value", mode="before")
     @classmethod
-    def require_decimal_string(cls, value):
+    def require_decimal_string(cls, value: object) -> Decimal:
         if not isinstance(value, str):
             raise ValueError("Canonical quantity must be a decimal string.")
         parsed = exact_decimal(value)
