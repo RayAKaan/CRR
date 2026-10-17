@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from decimal import Decimal
 from enum import StrEnum
-from typing import Any, Mapping
+from typing import Any
 
 from crr.domain.errors import DomainError, TenantBoundaryError
 from crr.domain.quantity import Quantity
@@ -72,7 +72,9 @@ class Demand:
 
     def __post_init__(self) -> None:
         if not self.id or not self.organization_id or not self.required_state or not self.created_by:
-            raise DomainError("Demand identity, organization, required state and creator are required.")
+            raise DomainError(
+                "Demand identity, organization, required state and creator are required."
+            )
         if self.version < 1:
             raise DomainError("Demand version must be positive.")
         units = {
