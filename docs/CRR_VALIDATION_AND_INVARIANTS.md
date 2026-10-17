@@ -1,0 +1,1868 @@
+# CRR Validation and Invariants
+
+**Status:** Normative validation and invariant specification
+**Version:** 0.1
+**Protocol:** Computational Resource Routing (CRR)
+**Authority:** CRR protocol/domain/API/system-design specifications
+
+> This document defines the validation model and non-negotiable invariants of CRR. It is implementation-independent. A reference implementation may use Python, Pydantic, PostgreSQL, PostGIS, FastAPI, Redis, Celery, React, or Jev, but conformance is determined by behavior and preserved semantics, not by technology choice.
+
+---
+
+## 1. Purpose
+
+CRR operates on physical reality. Validation is therefore not merely JSON/schema validation. A conforming implementation must prevent malformed, impossible, unauthorized, physically inconsistent, economically misleading, unverified, stale, duplicated, or cross-tenant state from becoming authoritative truth.
+
+The validation system exists to guarantee that:
+
+1. canonical data represents defensible physical reality;
+2. resource lineage remains intact;
+3. transformations remain physically and operationally coherent;
+4. routes are actually feasible before they are ranked;
+5. commercial state cannot outrun physical or authorization state;
+6. evidence remains distinguishable from claims;
+7. verified outcomes are evidence-backed;
+8. AI cannot override authoritative constraints;
+9. event replay cannot duplicate domain effects;
+10. derived projections cannot become canonical truth;
+11. tenant boundaries and permissions cannot be bypassed;
+12. authoritative calculations remain reproducible;
+13. historical physical truth cannot be silently rewritten.
+
+---
+
+## 2. Normative language
+
+- **MUST** — mandatory for conformance.
+- **MUST NOT** — prohibited.
+- **SHOULD** — strongly recommended unless a documented reason exists.
+- **SHOULD NOT** — normally prohibited unless documented.
+- **MAY** — optional.
+
+---
+
+## 3. Validation versus invariant
+
+### 3.1 Validation
+
+A validation is a check performed before accepting an input, transition, calculation, decision, or external operation.
+
+Example:
+
+> `quantity > 0` is validated when a ResourceState is created.
+
+### 3.2 Invariant
+
+An invariant is a property that must remain true of canonical state and protocol history.
+
+Example:
+
+> A canonical ResourceState must never have a negative quantity.
+
+### 3.3 Constraint
+
+A constraint is a context-dependent rule, such as a capability's maximum daily capacity or a demand's acceptance temperature range.
+
+### 3.4 Derived check
+
+A derived check is performed against a projection such as a graph, search index, ranking or cache. Derived checks can detect stale projections, but derived data must never override canonical truth.
+
+---
+
+## 4. Validation severity
+
+Every validation result has a severity.
+
+| Severity | Meaning | Effect |
+|---|---|---|
+| `BLOCKING` | Cannot safely accept/execute | Operation MUST fail or transition to escalation |
+| `WARNING` | Valid but material uncertainty | Operation MAY continue only where policy permits |
+| `INFORMATIONAL` | Useful diagnostic | No state effect |
+| `ESCALATION` | Requires authorized human/policy decision | Automated completion MUST stop |
+
+Hard physical, safety, authorization, integrity and applicable regulatory constraints are normally `BLOCKING`.
+
+---
+
+## 5. Validation categories
+
+A conforming system must support these conceptual validation layers:
+
+1. syntactic validation;
+2. schema/structural validation;
+3. authentication and authorization;
+4. referential integrity;
+5. lifecycle/state validation;
+6. temporal validation;
+7. physical/quantity validation;
+8. unit validation;
+9. quality validation;
+10. lineage/conservation validation;
+11. capability/capacity validation;
+12. geographic/logistics validation;
+13. regulatory/safety/eligibility validation;
+14. economic validation;
+15. routing validation;
+16. decision/Jev validation;
+17. opportunity validation;
+18. transaction validation;
+19. execution validation;
+20. evidence/trust validation;
+21. event/idempotency validation;
+22. tenant-isolation validation;
+23. API-contract validation;
+24. ingestion/provenance validation;
+25. derived-projection validation;
+26. operational/reliability validation.
+
+---
+
+## 6. Validation ordering
+
+The reference logical order is:
+
+```text
+PARSE
+  ↓
+SCHEMA
+  ↓
+AUTHENTICATION
+  ↓
+AUTHORIZATION / TENANT
+  ↓
+REFERENCE INTEGRITY
+  ↓
+STATE / TEMPORAL
+  ↓
+QUANTITY / UNIT
+  ↓
+QUALITY
+  ↓
+LINEAGE / CONSERVATION
+  ↓
+CAPACITY / LOGISTICS
+  ↓
+REGULATORY / SAFETY
+  ↓
+ECONOMICS
+  ↓
+ROUTING
+  ↓
+DECISION
+  ↓
+COMMERCIAL STATE
+  ↓
+EXECUTION
+  ↓
+EVIDENCE / VERIFICATION
+```
+
+Implementations may parallelize independent checks, but dependency ordering must be preserved.
+
+---
+
+# 7. Canonical data classes
+
+CRR MUST distinguish:
+
+```text
+RAW
+ ↓
+VALIDATED
+ ↓
+NORMALIZED
+ ↓
+CANONICAL
+ ↓
+DERIVED
+ ↓
+PLANNED
+ ↓
+ACTUAL
+ ↓
+CLAIMED
+ ↓
+VERIFIED
+```
+
+A raw record is not automatically canonical.
+
+A derived record is never authoritative merely because it was generated by a trusted service.
+
+A planned value is never an actual value.
+
+An actual value is not automatically verified.
+
+A claim is not a verified fact.
+
+---
+
+# 8. Authoritative versus derived truth
+
+## 8.1 Authoritative
+
+The following are authoritative when accepted into canonical state:
+
+- organization ownership;
+- resource identity;
+- ResourceState facts;
+- demand state;
+- capability registration;
+- transformation definitions;
+- transaction state;
+- execution observations;
+- verified evidence;
+- immutable events.
+
+## 8.2 Derived
+
+The following are derived and regenerable:
+
+- graph projections;
+- embeddings;
+- search indexes;
+- cached rankings;
+- route scores;
+- analytics aggregates;
+- recommendations;
+- UI projections.
+
+### INV-DATA-001
+Derived data MUST NOT mutate canonical truth directly.
+
+### INV-DATA-002
+If a derived projection conflicts with canonical state, canonical state wins and the projection MUST be rebuilt or invalidated.
+
+---
+
+# 9. Universal object invariants
+
+### INV-OBJ-001 — Stable identity
+Every canonical object MUST have a stable unique identifier.
+
+### INV-OBJ-002 — Explicit schema
+Every canonical object MUST identify its schema version.
+
+### INV-OBJ-003 — Versioned state
+Every mutable canonical object MUST expose a monotonic object/revision version or equivalent concurrency mechanism.
+
+### INV-OBJ-004 — Provenance
+Canonical physical facts MUST retain provenance sufficient to identify where and how the fact was obtained.
+
+### INV-OBJ-005 — Attribution
+Material mutations MUST identify the actor or service responsible.
+
+### INV-OBJ-006 — Timestamp validity
+Authoritative timestamps MUST be valid RFC 3339/ISO-8601 values and must be unambiguous.
+
+### INV-OBJ-007 — No semantic ID dependence
+Identifiers MUST NOT be interpreted as physical truth unless explicitly defined by the protocol.
+
+### INV-OBJ-008 — Historical integrity
+An accepted historical physical fact MUST NOT be silently deleted or rewritten.
+
+---
+
+# 10. Resource validation
+
+## VAL-RES-001 — Resource identity
+Resource identity must be unique within the protocol namespace.
+
+## VAL-RES-002 — Owner validity
+A Resource owner MUST reference an existing authorized organization.
+
+## VAL-RES-003 — Resource state existence
+A resource claiming a current physical state MUST reference an existing ResourceState.
+
+## VAL-RES-004 — Provenance
+Externally supplied resource information MUST include source/provenance metadata.
+
+### INV-RES-001
+A Resource is a lineage container and MUST NOT be treated as a substitute for its ResourceState.
+
+### INV-RES-002
+Deleting a Resource with historical states MUST NOT erase its physical history. Archival/deactivation semantics MUST be used.
+
+### INV-RES-003
+Every ResourceState MUST belong to exactly one Resource lineage.
+
+---
+
+# 11. ResourceState validation
+
+ResourceState is the most important physical validation boundary in CRR.
+
+Required conceptual information:
+
+- resource reference;
+- state/material classification;
+- quantity;
+- unit;
+- location;
+- ownership/custody;
+- effective time;
+- availability;
+- provenance;
+- physical/quality properties where relevant.
+
+## VAL-RST-001 — Positive quantity
+Quantity MUST be non-negative and, where a physical state represents an existing batch, normally strictly positive.
+
+## VAL-RST-002 — Valid unit
+Unit MUST be recognized by the protocol's unit registry or an explicitly namespaced extension.
+
+## VAL-RST-003 — Canonical unit
+Authoritative calculations MUST use canonicalized units.
+
+## VAL-RST-004 — Location
+A physical state intended for routing MUST have a valid location or an explicitly declared location uncertainty policy.
+
+## VAL-RST-005 — Effective time
+The state MUST have sufficient temporal information for availability-sensitive operations.
+
+## VAL-RST-006 — Ownership/custody
+The authority controlling the state MUST be identifiable before commercial execution where required.
+
+### INV-RST-001
+No canonical ResourceState may contain a negative physical quantity.
+
+### INV-RST-002
+No ResourceState may silently change physical meaning through an ordinary metadata update.
+
+### INV-RST-003
+A material physical change MUST create a new state/event rather than overwrite historical physical reality.
+
+### INV-RST-004
+A ResourceState used for routing MUST be compatible with the route's source assumptions.
+
+---
+
+# 12. Quantity and unit invariants
+
+CRR MUST use exact decimal semantics for authoritative physical quantities.
+
+## VAL-QTY-001
+Numeric physical values must be parseable as exact decimals.
+
+## VAL-QTY-002
+Binary floating-point values MUST NOT be the authoritative representation of physical quantities.
+
+## VAL-QTY-003
+Unit conversion MUST use a versioned, explicit conversion factor.
+
+## VAL-QTY-004
+Context-dependent conversions MUST include the required conditions, such as density, temperature, pressure or moisture, where applicable.
+
+## VAL-QTY-005
+Ambiguous units MUST be rejected.
+
+### INV-QTY-001
+A unit conversion MUST preserve physical meaning.
+
+### INV-QTY-002
+Repeated conversion through the same canonical representation MUST be deterministic within declared precision/tolerance.
+
+### INV-QTY-003
+Quantity calculations MUST be reproducible from stored inputs and conversion rules.
+
+---
+
+# 13. Quality validation
+
+Quality may include composition, contamination, grade, moisture, temperature, purity, dimensions, calorific value or other resource-specific properties.
+
+## VAL-QUAL-001
+Every quantitative quality value MUST have a unit.
+
+## VAL-QUAL-002
+Where measurement is material to acceptance, measurement method/source MUST be recorded.
+
+## VAL-QUAL-003
+Quality requirements MUST be compared using compatible units and definitions.
+
+## VAL-QUAL-004
+A route requiring a quality threshold MUST fail when authoritative quality is outside the permitted range unless a valid transformation can restore compatibility.
+
+### INV-QUAL-001
+Unknown quality MUST NOT be represented as verified quality.
+
+### INV-QUAL-002
+A model-generated estimate MUST NOT be represented as a measured laboratory result.
+
+---
+
+# 14. Lineage and conservation
+
+Resource lineage is fundamental to CRR.
+
+## 14.1 Split
+
+A parent state can become multiple child states.
+
+```text
+PARENT
+ ├── CHILD A
+ ├── CHILD B
+ └── CHILD C
+```
+
+The quantity relationship MUST reconcile according to the applicable balance model.
+
+## 14.2 Merge
+
+Multiple compatible states can be combined.
+
+```text
+A ─┐
+B ─┼→ MERGED STATE
+C ─┘
+```
+
+Compatibility of material, custody and other required properties MUST be validated.
+
+## 14.3 Transformation balance
+
+Not every transformation is mass-conservative in exactly the same form. Therefore each transformation declares a balance model.
+
+Possible categories include:
+
+- strict conservation;
+- bounded yield;
+- declared process loss;
+- residual/byproduct output;
+- measurement-tolerance model.
+
+### INV-LIN-001
+Every child physical state MUST have traceable predecessor lineage unless it is an explicitly registered external origin.
+
+### INV-LIN-002
+Every split/merge MUST preserve a quantitative reconciliation according to its declared balance model.
+
+### INV-LIN-003
+Losses MUST be explicitly represented where material.
+
+### INV-LIN-004
+The system MUST NOT silently create physical quantity.
+
+### INV-LIN-005
+The system MUST NOT silently destroy physical quantity.
+
+---
+
+# 15. Demand validation
+
+Demand describes what a participant is willing/able to accept.
+
+## VAL-DEM-001
+Demand MUST reference a valid organization.
+
+## VAL-DEM-002
+Demand MUST specify required state semantics.
+
+## VAL-DEM-003
+Quantity ranges MUST be logically valid: minimum ≤ target ≤ maximum where all are present.
+
+## VAL-DEM-004
+Timing windows MUST be ordered and valid.
+
+## VAL-DEM-005
+Price constraints MUST use a valid currency and exact numeric representation.
+
+## VAL-DEM-006
+Required certifications and regulatory conditions MUST be explicit where material.
+
+### INV-DEM-001
+Expired demand MUST NOT be treated as active demand.
+
+### INV-DEM-002
+Paused/cancelled/fulfilled demand MUST NOT accept new routing allocations unless explicitly reactivated.
+
+### INV-DEM-003
+Demand fulfillment MUST NOT exceed permitted remaining quantity.
+
+---
+
+# 16. Capability validation
+
+## VAL-CAP-001
+Capability MUST reference a valid organization.
+
+## VAL-CAP-002
+Accepted input specifications MUST be defined.
+
+## VAL-CAP-003
+Output specifications MUST be defined for transformation capabilities.
+
+## VAL-CAP-004
+Capacity MUST have a unit and applicable time window.
+
+## VAL-CAP-005
+Required certifications/authorizations MUST be represented.
+
+### INV-CAP-001
+A revoked capability MUST NOT be selected for execution.
+
+### INV-CAP-002
+A route MUST NOT consume more capability capacity than is available for its relevant period.
+
+### INV-CAP-003
+Capability status MUST be respected by routing and transaction execution.
+
+---
+
+# 17. Transformation validation
+
+## VAL-TRN-001
+All input requirements must be structurally valid.
+
+## VAL-TRN-002
+All output specifications must be valid.
+
+## VAL-TRN-003
+Yield bounds must be mathematically coherent.
+
+## VAL-TRN-004
+Declared duration and capacity must be valid.
+
+## VAL-TRN-005
+Regulatory and safety prerequisites must be explicit where applicable.
+
+### INV-TRN-001
+A transformation cannot accept an input state that violates its hard input requirements.
+
+### INV-TRN-002
+Transformation output MUST conform to its declared output bounds.
+
+### INV-TRN-003
+A transformation definition cannot be used as proof that a physical transformation occurred.
+
+### INV-TRN-004
+Actual transformation results must be represented through execution and evidence.
+
+---
+
+# 18. Geographic and logistics validation
+
+## VAL-GEO-001
+Coordinates must be valid when supplied.
+
+## VAL-GEO-002
+Distance must be calculated from authoritative source/destination locations.
+
+## VAL-GEO-003
+Travel time assumptions must be explicit.
+
+## VAL-GEO-004
+Transport capacity must be sufficient.
+
+## VAL-GEO-005
+Pickup/delivery windows must be compatible.
+
+### INV-GEO-001
+A route cannot claim a physically impossible location transition.
+
+### INV-GEO-002
+Distance cannot be manipulated by an AI/model/client to satisfy economics.
+
+### INV-GEO-003
+Transport is a route leg, not evidence that shipment occurred.
+
+---
+
+# 19. Regulatory, safety and eligibility validation
+
+The protocol records applicable requirements; jurisdiction-specific legal interpretation remains an implementation/policy responsibility.
+
+## VAL-REG-001
+Required authorization/certification MUST be present before a route is executable where policy requires it.
+
+## VAL-REG-002
+Prohibited input/process combinations MUST be rejected.
+
+## VAL-REG-003
+Hazardous or controlled resource flows MUST require appropriate eligibility and handling controls.
+
+## VAL-REG-004
+Regulatory uncertainty MUST escalate rather than be guessed by an AI provider.
+
+### INV-REG-001
+A route violating an authoritative hard safety/regulatory constraint is infeasible.
+
+### INV-REG-002
+Jev MUST NOT invent regulatory permission.
+
+### INV-REG-003
+Missing regulatory evidence MUST NOT be represented as compliance.
+
+---
+
+# 20. Capacity validation
+
+Available capacity is generally:
+
+```text
+Declared Capacity
+- Existing Commitments
+- Existing Reservations
+- Other Protected Capacity
+= Available Capacity
+```
+
+### INV-CAPACITY-001
+Available capacity MUST NOT become negative.
+
+### INV-CAPACITY-002
+A route cannot reserve capacity already committed to an incompatible execution.
+
+### INV-CAPACITY-003
+Concurrent reservations MUST be checked for overlap.
+
+---
+
+# 21. Route validation
+
+## VAL-RTE-001
+Source state exists and is valid.
+
+## VAL-RTE-002
+Target demand/state exists and is valid.
+
+## VAL-RTE-003
+Every route leg has a valid type.
+
+## VAL-RTE-004
+Leg order is unambiguous.
+
+## VAL-RTE-005
+Output of each leg satisfies input requirements of the next leg.
+
+## VAL-RTE-006
+All hard constraints pass.
+
+## VAL-RTE-007
+Economics are reproducible.
+
+## VAL-RTE-008
+Route validity/expiry is explicit.
+
+### INV-RTE-001
+An infeasible route MUST NOT be ranked as a feasible route.
+
+### INV-RTE-002
+A score MUST NOT override a hard constraint.
+
+### INV-RTE-003
+A route is a plan and MUST NOT be treated as execution evidence.
+
+### INV-RTE-004
+A stale route MUST be revalidated before execution.
+
+### INV-RTE-005
+Every route candidate MUST be traceable to the facts and rules that generated it.
+
+---
+
+# 22. Routing score validation
+
+Scores are comparative, not authoritative.
+
+A score must identify:
+
+- score version;
+- component scores;
+- weights where applicable;
+- input references;
+- calculation timestamp;
+- assumptions.
+
+### INV-SCORE-001
+Scores may rank only routes that already pass required feasibility validation.
+
+### INV-SCORE-002
+A high score cannot legalize or physically validate a route.
+
+### INV-SCORE-003
+Score calculations must be reproducible from recorded inputs.
+
+---
+
+# 23. Decision validation
+
+## VAL-DEC-001
+Decision context must identify its decision type.
+
+## VAL-DEC-002
+Candidate set must be explicit.
+
+## VAL-DEC-003
+Candidate references must exist.
+
+## VAL-DEC-004
+Authoritative constraints must be supplied to the decision boundary.
+
+## VAL-DEC-005
+Decision output must conform to the structured decision schema.
+
+## VAL-DEC-006
+Selected candidate must be in the candidate set.
+
+## VAL-DEC-007
+Selected candidate must pass deterministic validation.
+
+### INV-DEC-001
+A Decision MUST NOT create canonical physical facts.
+
+### INV-DEC-002
+A Decision MUST NOT override hard constraints.
+
+### INV-DEC-003
+Decision rationale is explanatory and is not itself authoritative physical truth.
+
+### INV-DEC-004
+Confidence is not evidence.
+
+### INV-DEC-005
+Every accepted decision must preserve provider/model/version/context provenance.
+
+---
+
+# 24. Jev validation
+
+Jev is a bounded provider, not the system's source of truth.
+
+## VAL-JEV-001
+Jev input MUST be structured and scoped to the decision being made.
+
+## VAL-JEV-002
+Only the minimum necessary context should be supplied.
+
+## VAL-JEV-003
+Provider output MUST pass schema validation.
+
+## VAL-JEV-004
+Provider output MUST be checked against canonical facts.
+
+## VAL-JEV-005
+Provider/model/version MUST be recorded.
+
+## VAL-JEV-006
+Timeouts and malformed outputs MUST fail safely.
+
+### INV-JEV-001
+Jev cannot directly mutate canonical state.
+
+### INV-JEV-002
+Jev cannot set evidence to verified.
+
+### INV-JEV-003
+Jev cannot create capacity, quantity, demand, capability, regulatory permission or economic facts.
+
+### INV-JEV-004
+Jev unavailability MUST NOT corrupt protocol state.
+
+### INV-JEV-005
+The system MUST support deterministic/human fallback when Jev is unavailable.
+
+---
+
+# 25. Opportunity validation
+
+## VAL-OPP-001
+Opportunity must reference a valid route.
+
+## VAL-OPP-002
+Required participants must be authorized.
+
+## VAL-OPP-003
+Underlying demand/capability must remain valid.
+
+## VAL-OPP-004
+Economic assumptions must be current within their validity window.
+
+### INV-OPP-001
+An opportunity is not a transaction.
+
+### INV-OPP-002
+An opportunity cannot be approved from an infeasible route.
+
+### INV-OPP-003
+Expired opportunities cannot become executable without explicit revalidation.
+
+---
+
+# 26. Offer validation
+
+Offers MUST specify sufficient commercial terms to be actionable:
+
+- proposer;
+- recipient;
+- quantity;
+- price/currency;
+- timing;
+- route or delivery assumptions;
+- conditions;
+- expiration.
+
+### INV-OFF-001
+An expired offer cannot be accepted.
+
+### INV-OFF-002
+Acceptance must reference the exact offer/version being accepted.
+
+### INV-OFF-003
+An offer does not prove physical delivery.
+
+---
+
+# 27. Agreement validation
+
+### VAL-AGR-001
+Agreement participants must be authorized.
+
+### VAL-AGR-002
+Accepted terms must be explicit.
+
+### VAL-AGR-003
+Referenced offers must exist and be compatible.
+
+### INV-AGR-001
+An agreement cannot silently alter accepted terms without an auditable amendment.
+
+### INV-AGR-002
+An agreement is not evidence that execution occurred.
+
+---
+
+# 28. Transaction validation
+
+Transaction is the protocol-level commercial execution record.
+
+### VAL-TXN-001
+Transaction must reference an approved opportunity/agreement as required by policy.
+
+### VAL-TXN-002
+Resource references must be valid.
+
+### VAL-TXN-003
+Execution requirements must be explicit.
+
+### VAL-TXN-004
+Required evidence requirements must be known before execution.
+
+### INV-TXN-001
+A transaction cannot be created from an invalid opportunity.
+
+### INV-TXN-002
+Transaction lifecycle transitions must be valid.
+
+### INV-TXN-003
+Transaction completion cannot be inferred from route existence.
+
+### INV-TXN-004
+Transaction verification requires required evidence.
+
+### INV-TXN-005
+Planned commercial values and actual physical values remain distinct.
+
+---
+
+# 29. Execution validation
+
+Execution contains ordered operational steps.
+
+### VAL-EXE-001
+Each step must have a responsible party or system.
+
+### VAL-EXE-002
+Step prerequisites must be satisfied.
+
+### VAL-EXE-003
+Actual quantity must use exact units.
+
+### VAL-EXE-004
+Failed/partial steps must be explicitly recorded.
+
+### INV-EXE-001
+Execution does not equal verification.
+
+### INV-EXE-002
+A failed execution cannot silently become successful.
+
+### INV-EXE-003
+Partial fulfillment must remain explicitly partial.
+
+### INV-EXE-004
+Actual observations must not overwrite planned values.
+
+---
+
+# 30. Evidence validation
+
+Evidence is the trust boundary between claims and verified outcomes.
+
+## VAL-EVD-001
+Evidence must reference an existing subject.
+
+## VAL-EVD-002
+Evidence must identify issuer/submitter.
+
+## VAL-EVD-003
+Evidence must have capture/submission time.
+
+## VAL-EVD-004
+Immutable evidence content SHOULD have a content hash.
+
+## VAL-EVD-005
+Verification requires an authorized verifier.
+
+## VAL-EVD-006
+Conflicting evidence must enter dispute/escalation handling.
+
+### INV-EVD-001
+Evidence cannot reference a nonexistent object.
+
+### INV-EVD-002
+Unverified evidence cannot be represented as verified fact.
+
+### INV-EVD-003
+A client cannot self-authorize verification merely by setting a field.
+
+### INV-EVD-004
+Verified evidence must remain attributable to its verifier.
+
+### INV-EVD-005
+Disputed evidence cannot silently support a final verified outcome.
+
+---
+
+# 31. Economic validation
+
+Authoritative economic values must use exact decimal or minor-unit semantics.
+
+## VAL-ECO-001
+Currency must be explicit.
+
+## VAL-ECO-002
+Every component must identify whether it is a cost, value, revenue, fee or other category.
+
+## VAL-ECO-003
+Assumptions must be recorded.
+
+## VAL-ECO-004
+Calculation version must be recorded.
+
+### INV-ECO-001
+Economic outputs must be reproducible from stored inputs and calculation version.
+
+### INV-ECO-002
+A model cannot silently modify recorded economic inputs.
+
+### INV-ECO-003
+Negative economic outcome is valid data but cannot be represented as positive value through rounding or omission.
+
+### INV-ECO-004
+Taxes/fees are either included or explicitly excluded; they cannot be ambiguously omitted.
+
+---
+
+# 32. Event validation
+
+Recommended event envelope:
+
+```json
+{
+  "event_id": "evt_123",
+  "event_type": "resource.state.created",
+  "event_version": 1,
+  "occurred_at": "2026-10-17T12:34:56Z",
+  "aggregate_type": "resource_state",
+  "aggregate_id": "rst_123",
+  "aggregate_version": 3,
+  "actor": "act_123",
+  "organization_id": "org_123",
+  "correlation_id": "corr_123",
+  "causation_id": "evt_122",
+  "idempotency_key": "idem_123",
+  "payload": {},
+  "schema_version": "0.1"
+}
+```
+
+### INV-EVT-001
+Event IDs are unique.
+
+### INV-EVT-002
+Events are immutable.
+
+### INV-EVT-003
+Aggregate versions are monotonic where ordering is required.
+
+### INV-EVT-004
+Replaying the same event cannot produce a duplicate domain effect.
+
+### INV-EVT-005
+Event payload cannot claim a canonical state change that did not occur.
+
+### INV-EVT-006
+Causation/correlation information must remain intact where provided.
+
+---
+
+# 33. Idempotency validation
+
+Operations susceptible to retry MUST be idempotent when an idempotency key is supplied/required.
+
+### INV-IDEM-001
+Same idempotency key + equivalent request MUST result in the same logical effect.
+
+### INV-IDEM-002
+Same idempotency key + materially different request MUST be rejected as a conflict.
+
+### INV-IDEM-003
+Event replay MUST NOT double-reserve capacity, double-charge a transaction or duplicate a physical action.
+
+---
+
+# 34. Tenant and authorization invariants
+
+### INV-SEC-001
+Every protected read MUST enforce authorization before disclosure.
+
+### INV-SEC-002
+Every protected write MUST enforce authorization before mutation.
+
+### INV-SEC-003
+Cross-tenant references require explicit permitted relationships.
+
+### INV-SEC-004
+A client cannot escalate its own role.
+
+### INV-SEC-005
+Sensitive economic information is only visible to authorized principals.
+
+### INV-SEC-006
+Evidence access follows evidence/object permissions.
+
+### INV-SEC-007
+Secrets, tokens and provider credentials MUST NOT appear in ordinary logs or event payloads.
+
+### INV-SEC-008
+Verification privileges SHOULD be separated from ordinary submission privileges.
+
+---
+
+# 35. API validation invariants
+
+### INV-API-001
+API inputs MUST pass domain validation before canonical acceptance.
+
+### INV-API-002
+Arbitrary status PATCH operations MUST NOT bypass lifecycle rules.
+
+### INV-API-003
+API clients cannot directly set authoritative verification states without authorization.
+
+### INV-API-004
+API responses MUST distinguish planned, actual, claimed and verified data.
+
+### INV-API-005
+API version changes cannot silently change existing v1 semantics.
+
+### INV-API-006
+Unknown response fields should be safely ignorable by clients.
+
+### INV-API-007
+Request/correlation IDs must be traceable across asynchronous operations where possible.
+
+---
+
+# 36. Ingestion validation
+
+The canonical ingestion pipeline is:
+
+```text
+RAW INPUT
+ ↓
+PARSE
+ ↓
+SCHEMA VALIDATION
+ ↓
+ROW / RECORD VALIDATION
+ ↓
+NORMALIZATION
+ ↓
+REFERENCE RESOLUTION
+ ↓
+DOMAIN VALIDATION
+ ↓
+PROVENANCE
+ ↓
+CANONICAL WRITE
+ ↓
+EVENT
+```
+
+### INV-ING-001
+Raw source data MUST NOT be silently destroyed during ingestion.
+
+### INV-ING-002
+Invalid records MUST NOT become canonical facts.
+
+### INV-ING-003
+Imported canonical objects follow the same invariants as API-created objects.
+
+### INV-ING-004
+Partial imports must report accepted and rejected records separately.
+
+### INV-ING-005
+Dry-run validation must not mutate canonical state.
+
+---
+
+# 37. Derived graph validation
+
+The Resource Graph is a projection of canonical objects.
+
+### INV-GRAPH-001
+Every graph node representing canonical reality must reference an authoritative object.
+
+### INV-GRAPH-002
+Every graph edge must have a valid semantic relationship.
+
+### INV-GRAPH-003
+A stale graph cannot override canonical state.
+
+### INV-GRAPH-004
+Graph rebuilds must be deterministic from the same canonical snapshot and projection version.
+
+### INV-GRAPH-005
+Deleting/revoking a canonical object must invalidate dependent graph projections.
+
+---
+
+# 38. Search and embedding validation
+
+Embeddings may improve semantic matching but are not authoritative.
+
+### INV-SEARCH-001
+An embedding cannot create a capability, demand or resource that does not exist canonically.
+
+### INV-SEARCH-002
+Semantic similarity cannot override hard incompatibility.
+
+### INV-SEARCH-003
+Embedding model/version must be traceable where similarity materially influences ranking.
+
+---
+
+# 39. State transition validation
+
+State changes MUST be explicit and validated against allowed transitions.
+
+## ResourceState
+
+```text
+DRAFT
+ ↓
+ACTIVE
+ ↓
+RESERVED
+ ↓
+IN_TRANSIT
+ ↓
+RECEIVED
+ ↓
+PROCESSING
+ ↓
+TRANSFORMED
+ ↓
+CONSUMED / COMPLETED
+```
+
+Exception states include `CANCELLED` and `DISPUTED` where semantically valid.
+
+## Demand
+
+```text
+DRAFT → ACTIVE → PAUSED → ACTIVE
+                  ↓
+        FULFILLED / EXPIRED / CANCELLED / DISPUTED
+```
+
+## Opportunity
+
+```text
+DISCOVERED → VALIDATING → PROPOSED → APPROVED
+                                  ↘ REJECTED
+                                  ↘ EXPIRED
+```
+
+## Evidence
+
+```text
+CLAIMED → SUBMITTED → VERIFIED
+                  ↘ REJECTED
+                  ↘ DISPUTED
+```
+
+## Decision
+
+```text
+REQUESTED → EVALUATING → GENERATED → VALIDATED
+                                      ↓
+                            ACCEPTED / REJECTED / ESCALATED
+```
+
+### INV-STATE-001
+Only permitted transitions may occur.
+
+### INV-STATE-002
+Terminal states cannot be silently reopened.
+
+### INV-STATE-003
+Reopening requires an explicit protocol transition and audit trail where supported.
+
+### INV-STATE-004
+A transition must identify actor/cause and preserve version ordering.
+
+---
+
+# 40. Planned, actual, claimed, verified matrix
+
+| Class | Meaning | Can be used as proof? |
+|---|---|---|
+| Planned | Intended future state | No |
+| Actual | Observed execution value | Not automatically |
+| Claimed | Submitted assertion | No |
+| Verified | Evidence-backed accepted fact | Yes, within scope |
+
+### INV-TRUTH-001
+The system MUST NOT collapse these classes into one field when doing so would obscure epistemic status.
+
+---
+
+# 41. Failure semantics
+
+Failures must be explicit and machine-readable.
+
+Recommended categories:
+
+- `VALIDATION_FAILURE`
+- `AUTHENTICATION_FAILURE`
+- `AUTHORIZATION_FAILURE`
+- `TENANT_ACCESS_FAILURE`
+- `REFERENCE_NOT_FOUND`
+- `STALE_STATE`
+- `CAPACITY_INSUFFICIENT`
+- `NO_FEASIBLE_ROUTE`
+- `ECONOMIC_INFEASIBILITY`
+- `REGULATORY_FAILURE`
+- `SAFETY_FAILURE`
+- `QUALITY_MISMATCH`
+- `LINEAGE_FAILURE`
+- `EVIDENCE_FAILURE`
+- `TRANSACTION_CONFLICT`
+- `PARTIAL_EXECUTION`
+- `PROVIDER_TIMEOUT`
+- `JEV_UNAVAILABLE`
+- `DUPLICATE_REQUEST`
+- `EVENT_PUBLICATION_FAILURE`
+- `WEBHOOK_FAILURE`
+- `PROJECTION_STALE`
+- `LOGISTICS_FAILURE`
+- `PROCESS_YIELD_VARIANCE`
+- `DISPUTE`
+
+Every error should expose:
+
+- code;
+- category;
+- severity;
+- field/path where applicable;
+- rule ID;
+- human-readable message;
+- retryability;
+- object ID;
+- request/correlation ID.
+
+### INV-FAIL-001
+A failure MUST NOT silently create an invalid canonical state.
+
+### INV-FAIL-002
+Hard constraint failures fail closed.
+
+### INV-FAIL-003
+Jev failures fail safely and may escalate to deterministic/human handling.
+
+### INV-FAIL-004
+External webhook failure cannot rewrite transaction truth.
+
+### INV-FAIL-005
+Partial execution remains represented as partial execution.
+
+---
+
+# 42. Operational reliability invariants
+
+### INV-OPS-001
+Retryable asynchronous work must be idempotent.
+
+### INV-OPS-002
+Long-running operations must expose observable status.
+
+### INV-OPS-003
+Background workers must not bypass domain validation.
+
+### INV-OPS-004
+A failed projection can be rebuilt from canonical data.
+
+### INV-OPS-005
+A lost cache must not destroy canonical state.
+
+### INV-OPS-006
+A worker restart must not duplicate physical/commercial effects.
+
+---
+
+# 43. Security validation
+
+The security boundary is part of domain integrity, not an optional operational feature.
+
+Required controls include:
+
+- authentication;
+- authorization;
+- tenant isolation;
+- least privilege;
+- scoped evidence access;
+- audit logging;
+- encrypted transport;
+- protected secrets;
+- protected provider credentials;
+- verification authorization;
+- rate limiting where appropriate.
+
+### INV-SECURITY-001
+No unauthenticated protected mutation.
+
+### INV-SECURITY-002
+No unauthorized tenant disclosure.
+
+### INV-SECURITY-003
+No privilege escalation through object fields.
+
+### INV-SECURITY-004
+No provider secret in client-controlled context.
+
+---
+
+# 44. Decision adversarial validation
+
+AI/provider output must be treated as untrusted input at the decision boundary.
+
+The system MUST test for:
+
+- invented organizations;
+- invented capabilities;
+- invented demand;
+- invented evidence;
+- impossible quantities;
+- invalid units;
+- nonexistent candidates;
+- regulatory hallucination;
+- economic hallucination;
+- unsupported route selection;
+- prompt injection through external resource descriptions;
+- attempts to cause direct execution;
+- attempts to bypass authorization.
+
+### INV-AI-001
+Untrusted model text cannot become canonical truth without deterministic validation.
+
+### INV-AI-002
+Prompt/instruction content embedded in resource documents cannot override CRR protocol rules.
+
+### INV-AI-003
+Model output cannot expand its own authority.
+
+---
+
+# 45. Data provenance invariants
+
+### INV-PROV-001
+Every externally sourced canonical fact must retain source provenance.
+
+### INV-PROV-002
+Derived facts must retain the source objects or snapshot from which they were derived.
+
+### INV-PROV-003
+Decision records must retain decision context provenance.
+
+### INV-PROV-004
+Economic calculations must retain calculation inputs/assumptions.
+
+### INV-PROV-005
+Evidence must retain issuer and verification provenance.
+
+---
+
+# 46. API concurrency invariants
+
+### INV-CONC-001
+A stale mutation cannot silently overwrite a newer canonical version.
+
+### INV-CONC-002
+Concurrent capacity reservations must be serialized or otherwise conflict-checked.
+
+### INV-CONC-003
+Concurrent lifecycle transitions must preserve valid state-machine semantics.
+
+### INV-CONC-004
+A retry after timeout must be safe according to idempotency policy.
+
+---
+
+# 47. Transactional consistency
+
+When one logical operation updates canonical state and emits an event, the implementation must ensure the event cannot permanently claim a state change that was rolled back.
+
+A reference implementation SHOULD use an outbox pattern.
+
+### INV-TX-001
+Committed canonical state must have a corresponding auditable event when the protocol requires an event.
+
+### INV-TX-002
+Rolled-back canonical state must not publish a false committed event.
+
+### INV-TX-003
+Event publication may be delayed but cannot permanently contradict canonical truth.
+
+---
+
+# 48. Verification invariants
+
+A transaction can be commercially agreed and physically executed while still awaiting verification.
+
+### INV-VER-001
+`COMPLETED` and `VERIFIED` are semantically distinct.
+
+### INV-VER-002
+Verified outcome requires required evidence.
+
+### INV-VER-003
+Required evidence must be valid, attributable and accepted by an authorized verifier.
+
+### INV-VER-004
+A disputed verification cannot remain silently treated as uncontested truth.
+
+---
+
+# 49. Protocol/API conformance levels
+
+## Level 0 — Schema conformance
+
+The implementation validates canonical schemas, IDs, timestamps, precision and basic object relationships.
+
+## Level 1 — Reality conformance
+
+Adds ResourceState, provenance, lineage, quantity/unit validation and demand/capability reality.
+
+## Level 2 — Routing conformance
+
+Adds transformations, deterministic feasibility, capacity, logistics and reproducible economics.
+
+## Level 3 — Transaction conformance
+
+Adds opportunity, offers, agreements, transactions and execution state machines.
+
+## Level 4 — Evidence conformance
+
+Adds evidence, verification, disputes and verified outcomes.
+
+## Level 5 — Network conformance
+
+Adds events, webhooks, third-party integration, network-level interoperability and ecosystem semantics.
+
+---
+
+# 50. CRR-MVP-0.1 validation profile
+
+The MVP must validate:
+
+- Organization;
+- Actor;
+- Location;
+- Resource;
+- ResourceState;
+- Demand;
+- Capability;
+- Transformation;
+- Route;
+- Decision;
+- Opportunity;
+- Offer/Agreement/Transaction;
+- Execution;
+- Evidence;
+- Event;
+- EconomicModel;
+- API authorization and tenant isolation;
+- human approval boundary;
+- one complete verified transaction.
+
+The MVP does not require:
+
+- cross-border routing;
+- autonomous execution;
+- principal trading;
+- dedicated graph database;
+- financing/insurance;
+- global ontology;
+- third-party marketplace ecosystem;
+- microservice decomposition.
+
+---
+
+# 51. Testing strategy
+
+A conforming implementation should maintain at least:
+
+## 51.1 Unit tests
+
+Test individual validation rules and deterministic calculations.
+
+## 51.2 Integration tests
+
+Test database, graph projections, event publication, storage and external adapters.
+
+## 51.3 Contract tests
+
+Test API request/response semantics against the API contract.
+
+## 51.4 End-to-end tests
+
+Test the complete resource lifecycle.
+
+## 51.5 Property-based tests
+
+Generate quantities, splits, merges, units and route combinations to prove invariants across broad input spaces.
+
+## 51.6 State-machine tests
+
+Generate valid and invalid transitions and prove illegal transitions are rejected.
+
+## 51.7 Conservation tests
+
+Randomized transformation tests must prove declared balance equations.
+
+## 51.8 Routing tests
+
+Test impossible routes, insufficient capacity, expired demand, quality mismatches, regulatory blockers and economic infeasibility.
+
+## 51.9 AI adversarial tests
+
+Test prompt injection, hallucinated candidates, fabricated evidence and attempts to override constraints.
+
+## 51.10 Replay/idempotency tests
+
+Replay events and retried requests to prove no duplicate effects.
+
+## 51.11 Multi-tenant tests
+
+Attempt cross-tenant reads, writes, references and event subscriptions.
+
+## 51.12 Failure-injection tests
+
+Simulate:
+
+- database interruption;
+- worker crash;
+- Jev timeout;
+- Jev malformed output;
+- logistics failure;
+- processing failure;
+- evidence rejection;
+- webhook failure;
+- stale state;
+- duplicate event;
+- duplicate transaction request.
+
+---
+
+# 52. Validation test matrix
+
+| Area | Required proof |
+|---|---|
+| Identity | duplicate IDs rejected |
+| Quantity | negative/invalid quantities rejected |
+| Units | ambiguous conversions rejected |
+| Lineage | split/merge reconciles |
+| Quality | incompatible states rejected |
+| Demand | expired demand rejected |
+| Capability | insufficient capacity rejected |
+| Transformation | invalid yield rejected |
+| Route | hard constraint failure blocks |
+| Economics | replay reproduces value |
+| Decision | non-candidate selection rejected |
+| Jev | hallucinated facts rejected |
+| Opportunity | invalid route rejected |
+| Transaction | illegal transition rejected |
+| Execution | partial outcome preserved |
+| Evidence | unauthorized verification rejected |
+| Events | replay produces no duplicate effect |
+| Security | cross-tenant access rejected |
+| API | stale writes rejected |
+| Projection | stale graph never becomes truth |
+
+---
+
+# 53. Canonical invariant registry
+
+The following registry is the minimum conceptual invariant set for CRR v0.1.
+
+### Object and data
+
+- `INV-OBJ-001` stable identity
+- `INV-OBJ-002` explicit schema
+- `INV-OBJ-003` versioned state
+- `INV-OBJ-004` provenance
+- `INV-OBJ-005` attribution
+- `INV-OBJ-006` valid timestamps
+- `INV-OBJ-007` opaque semantics
+- `INV-OBJ-008` historical integrity
+- `INV-DATA-001` derived data cannot mutate truth
+- `INV-DATA-002` canonical truth wins over projection
+
+### Resource and physical state
+
+- `INV-RES-001` lineage ownership
+- `INV-RES-002` history preservation
+- `INV-RES-003` state belongs to resource
+- `INV-RST-001` no negative quantity
+- `INV-RST-002` physical meaning is not silently overwritten
+- `INV-RST-003` material changes create new state/history
+- `INV-RST-004` route source matches state
+
+### Quantity and lineage
+
+- `INV-QTY-001` physical meaning preserved
+- `INV-QTY-002` deterministic conversion
+- `INV-QTY-003` reproducible quantity calculation
+- `INV-LIN-001` lineage preserved
+- `INV-LIN-002` split/merge reconciliation
+- `INV-LIN-003` losses explicit
+- `INV-LIN-004` no silent creation
+- `INV-LIN-005` no silent destruction
+
+### Market and capability
+
+- `INV-DEM-001` expired demand inactive
+- `INV-DEM-002` paused/cancelled/fulfilled demand cannot accept silently
+- `INV-DEM-003` fulfillment bounded by remaining quantity
+- `INV-CAP-001` revoked capability unusable
+- `INV-CAP-002` capacity bounded
+- `INV-CAP-003` capability lifecycle respected
+
+### Transformation and routing
+
+- `INV-TRN-001` input requirements enforced
+- `INV-TRN-002` output bounds enforced
+- `INV-TRN-003` definition is not execution evidence
+- `INV-TRN-004` actual transformation requires execution/evidence
+- `INV-GEO-001` physical location transitions valid
+- `INV-GEO-002` distance cannot be manipulated
+- `INV-GEO-003` transport is not shipment proof
+- `INV-CAPACITY-001` capacity cannot become negative
+- `INV-CAPACITY-002` committed capacity cannot be double used
+- `INV-CAPACITY-003` overlapping reservations conflict
+- `INV-RTE-001` infeasible route cannot be feasible
+- `INV-RTE-002` score cannot override constraints
+- `INV-RTE-003` route is not execution proof
+- `INV-RTE-004` stale route revalidation
+- `INV-RTE-005` route traceability
+- `INV-SCORE-001` only feasible routes ranked
+- `INV-SCORE-002` score cannot legalize route
+- `INV-SCORE-003` score reproducibility
+
+### Decision/Jev
+
+- `INV-DEC-001` decisions do not create facts
+- `INV-DEC-002` no constraint override
+- `INV-DEC-003` rationale is not truth
+- `INV-DEC-004` confidence is not evidence
+- `INV-DEC-005` decision provenance
+- `INV-JEV-001` bounded structured context
+- `INV-JEV-002` no direct canonical mutation
+- `INV-JEV-003` no fabricated facts
+- `INV-JEV-004` safe unavailability
+- `INV-JEV-005` fallback exists
+
+### Commercial and execution
+
+- `INV-OPP-001` opportunity ≠ transaction
+- `INV-OPP-002` opportunity requires feasible route
+- `INV-OPP-003` expired opportunity requires revalidation
+- `INV-OFF-001` expired offer cannot be accepted
+- `INV-OFF-002` acceptance references exact offer version
+- `INV-OFF-003` offer is not physical proof
+- `INV-AGR-001` authorized agreement
+- `INV-AGR-002` agreement is not execution evidence
+- `INV-TXN-001` transaction requires valid commercial source
+- `INV-TXN-002` valid resources
+- `INV-TXN-003` execution requirements explicit
+- `INV-TXN-004` evidence requirements known
+- `INV-TXN-005` planned and actual values distinct
+- `INV-EXE-001` responsible execution steps
+- `INV-EXE-002` step prerequisites
+- `INV-EXE-003` exact actual quantities
+- `INV-EXE-004` explicit failure/partial state
+
+### Evidence/economics/events
+
+- `INV-EVD-001` evidence subject exists
+- `INV-EVD-002` evidence attributable
+- `INV-EVD-003` evidence timestamped
+- `INV-EVD-004` immutable content identity
+- `INV-EVD-005` authorized verification
+- `INV-EVD-006` disputes are explicit
+- `INV-ECO-001` reproducible economics
+- `INV-ECO-002` inputs cannot be silently modified
+- `INV-ECO-003` negative values remain negative
+- `INV-ECO-004` fees/taxes explicit
+- `INV-EVT-001` unique events
+- `INV-EVT-002` immutable events
+- `INV-EVT-003` aggregate ordering
+- `INV-EVT-004` idempotent replay
+- `INV-EVT-005` event truthfulness
+- `INV-EVT-006` causation/correlation
+
+### Security, API, operations
+
+- `INV-IDEM-001` retry-safe mutation
+- `INV-IDEM-002` conflicting idempotency key rejected
+- `INV-IDEM-003` replay-safe effects
+- `INV-SEC-001` authorized reads
+- `INV-SEC-002` authorized writes
+- `INV-SEC-003` cross-tenant relationship authorization
+- `INV-SEC-004` no privilege escalation
+- `INV-SEC-005` sensitive economics protected
+- `INV-SEC-006` evidence access protected
+- `INV-SEC-007` secrets protected
+- `INV-SEC-008` verification separation
+- `INV-API-001` domain validation before acceptance
+- `INV-API-002` no arbitrary lifecycle bypass
+- `INV-API-003` no unauthorized verification
+- `INV-API-004` epistemic distinctions preserved
+- `INV-API-005` version compatibility
+- `INV-API-006` safe response extensibility
+- `INV-API-007` traceability
+- `INV-ING-001` raw preservation
+- `INV-ING-002` invalid data cannot become truth
+- `INV-ING-003` import parity
+- `INV-ING-004` partial import transparency
+- `INV-ING-005` dry-run safety
+- `INV-GRAPH-001` graph nodes trace to truth
+- `INV-GRAPH-002` valid graph semantics
+- `INV-GRAPH-003` stale graph cannot override truth
+- `INV-GRAPH-004` deterministic rebuild
+- `INV-GRAPH-005` projection invalidation
+- `INV-SEARCH-001` embeddings cannot create facts
+- `INV-SEARCH-002` similarity cannot override incompatibility
+- `INV-SEARCH-003` model traceability
+- `INV-STATE-001` valid transitions
+- `INV-STATE-002` terminal-state integrity
+- `INV-STATE-003` explicit reopening
+- `INV-STATE-004` attributable transitions
+- `INV-TRUTH-001` epistemic separation
+- `INV-FAIL-001` failures cannot create invalid state
+- `INV-FAIL-002` hard constraints fail closed
+- `INV-FAIL-003` AI failure is safe
+- `INV-FAIL-004` webhook failure cannot change truth
+- `INV-FAIL-005` partial execution explicit
+- `INV-OPS-001` retry-safe asynchronous work
+- `INV-OPS-002` observable long-running operations
+- `INV-OPS-003` workers cannot bypass validation
+- `INV-OPS-004` projections rebuildable
+- `INV-OPS-005` cache loss is safe
+- `INV-OPS-006` worker restart is safe
+- `INV-SECURITY-001` no unauthenticated protected mutation
+- `INV-SECURITY-002` no cross-tenant disclosure
+- `INV-SECURITY-003` no privilege escalation
+- `INV-SECURITY-004` no provider secret exposure
+- `INV-AI-001` model output is untrusted input
+- `INV-AI-002` document prompts cannot override protocol
+- `INV-AI-003` model cannot expand authority
+- `INV-PROV-001` external provenance
+- `INV-PROV-002` derived provenance
+- `INV-PROV-003` decision provenance
+- `INV-PROV-004` economic provenance
+- `INV-PROV-005` evidence provenance
+- `INV-CONC-001` stale write rejection
+- `INV-CONC-002` capacity concurrency safety
+- `INV-CONC-003` lifecycle concurrency safety
+- `INV-CONC-004` timeout retry safety
+- `INV-TX-001` committed change is auditable
+- `INV-TX-002` rollback cannot publish false state
+- `INV-TX-003` delayed events remain truthful
+- `INV-VER-001` completed ≠ verified
+- `INV-VER-002` verified requires evidence
+- `INV-VER-003` evidence must be authorized/accepted
+- `INV-VER-004` disputes cannot silently remain verified
+
+---
+
+# 54. Definition of done for a conforming implementation
+
+CRR validation is considered implementation-ready only when all of the following are true:
+
+- canonical objects have stable IDs and versions;
+- ResourceState is the physical source of truth;
+- quantity/unit semantics are exact;
+- lineage survives split, merge and transformation;
+- demand and capability lifecycles are enforced;
+- transformations have explicit yield semantics;
+- route feasibility is deterministic;
+- economic calculations are reproducible;
+- Jev is bounded behind a provider contract;
+- AI output is validated as untrusted input;
+- opportunity/transaction/execution lifecycles are enforced;
+- evidence cannot be self-verified;
+- verified outcomes require required evidence;
+- events are immutable and replay-safe;
+- mutations are idempotent where required;
+- tenant boundaries are tested;
+- stale writes are rejected;
+- derived projections are rebuildable;
+- failure modes are explicit;
+- end-to-end tests prove one complete physical-resource loop.
+
+---
+
+# 55. Final CRR invariant
+
+The most important system invariant is:
+
+> **CRR MUST NEVER allow a computational representation, model output, recommendation, route score, transaction state, cached projection or user assertion to become more authoritative than the physical, economic, authorization and evidence-backed reality that it represents.**
+
+The protocol exists to make physical-resource circulation computable without losing the distinction between what is proposed, what is observed, what is claimed and what is verified.
+
+```text
+REALITY
+  ↓
+REPRESENTATION
+  ↓
+VALIDATION
+  ↓
+ROUTING
+  ↓
+DECISION
+  ↓
+EXECUTION
+  ↓
+EVIDENCE
+  ↓
+VERIFICATION
+  ↓
+TRUSTED OUTCOME
+  ↓
+BETTER FUTURE ROUTING
+```
