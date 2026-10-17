@@ -1,7 +1,56 @@
-from sqlalchemy import select
-from test_api_foundation import headers, make_client
+from datetime import UTC, datetime
+from hashlib import sha256
 
-from crr.models import IdempotencyRecord, OutboxEvent
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from crr.api import create_app
+from crr.models import Actor, APIKey, Base, IdempotencyRecord, Organization, OutboxEvent
+
+
+def make_client(org_id: str = "org_a", scopes: list[str] | None = None):
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    token = "test-secret"
+    now = datetime.now(UTC)
+    with factory.begin() as session:
+        session.add(Organization(id=org_id, name="Factory A", status="ACTIVE", created_at=now))
+        session.add(
+            Actor(
+                id=f"act_{org_id}",
+                organization_id=org_id,
+                name="Admin",
+                role="ORG_ADMIN",
+                active=True,
+                created_at=now,
+            )
+        )
+        session.add(
+            APIKey(
+                id=f"key_{org_id}",
+                organization_id=org_id,
+                actor_id=f"act_{org_id}",
+                secret_hash=sha256(token.encode()).hexdigest(),
+                scopes=scopes or ["admin:*"] ,
+                revoked=False,
+                created_at=now,
+            )
+        )
+    return TestClient(create_app(factory)), token, engine
+
+
+def headers(token: str, key: str | None = None) -> dict[str, str]:
+    result = {"Authorization": f"Bearer {token}"}
+    if key:
+        result["Idempotency-Key"] = key
+    return result
 
 
 DEMAND = {
