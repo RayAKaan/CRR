@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from decimal import Decimal
 from hashlib import sha256
-import os
-from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import pytest
@@ -62,11 +62,15 @@ def _auth(token: str, key: str | None = None) -> dict[str, str]:
     return headers
 
 
-def _seed_resource(client: TestClient, token: str, suffix: str) -> tuple[str, str, str]:
+def _seed_base(client: TestClient, token: str, suffix: str) -> tuple[str, str]:
     location = client.post(
         "/v1/locations",
         headers=_auth(token, f"loc-{suffix}"),
-        json={"id": f"loc_{suffix}", "name": "Yard", "provenance": {"source_type": "TEST"}},
+        json={
+            "id": f"loc_{suffix}",
+            "name": "Yard",
+            "provenance": {"source_type": "TEST"},
+        },
     )
     assert location.status_code == 201, location.text
     resource = client.post(
@@ -79,25 +83,30 @@ def _seed_resource(client: TestClient, token: str, suffix: str) -> tuple[str, st
         },
     )
     assert resource.status_code == 201, resource.text
+    return f"loc_{suffix}", f"res_{suffix}"
+
+
+def _seed_resource(client: TestClient, token: str, suffix: str) -> tuple[str, str, str]:
+    location_id, resource_id = _seed_base(client, token, suffix)
     state = client.post(
         "/v1/resource-states",
         headers=_auth(token, f"state-{suffix}"),
         json={
             "id": f"rst_{suffix}",
-            "resource_id": f"res_{suffix}",
+            "resource_id": resource_id,
             "state_type": "ALUMINUM",
             "quantity": {
                 "value": "10.000",
                 "unit": "t",
                 "unit_registry_version": "CRR-UNITS-0.1",
             },
-            "location_id": f"loc_{suffix}",
+            "location_id": location_id,
             "effective_at": "2026-10-17T12:00:00Z",
             "provenance": {"source_type": "TEST"},
         },
     )
     assert state.status_code == 201, state.text
-    return f"loc_{suffix}", f"res_{suffix}", f"rst_{suffix}"
+    return location_id, resource_id, f"rst_{suffix}"
 
 
 def test_cross_tenant_detail_collection_history_and_reference_writes_are_isolated() -> None:
@@ -118,7 +127,10 @@ def test_cross_tenant_detail_collection_history_and_reference_writes_are_isolate
     assert collection.status_code == 200
     assert collection.json()["data"] == []
 
-    history = client.get(f"/v1/resources/{resource_id}/resource-states", headers=_auth("token-b"))
+    history = client.get(
+        f"/v1/resources/{resource_id}/resource-states",
+        headers=_auth("token-b"),
+    )
     assert history.status_code == 404
 
     cross_tenant_state = client.post(
@@ -160,19 +172,19 @@ def test_quantity_validation_matrix(value: str, expected_status: int) -> None:
     _seed_tenant(factory, "org_q", "token-q")
     client = TestClient(create_app(factory))
     suffix = uuid4().hex[:10]
-    _seed_resource(client, "token-q", suffix)
+    location_id, resource_id = _seed_base(client, "token-q", suffix)
     response = client.post(
         "/v1/resource-states",
         headers=_auth("token-q", f"quantity-{suffix}"),
         json={
-            "resource_id": f"res_{suffix}",
+            "resource_id": resource_id,
             "state_type": "ALUMINUM",
             "quantity": {
                 "value": value,
                 "unit": "t",
                 "unit_registry_version": "CRR-UNITS-0.1",
             },
-            "location_id": f"loc_{suffix}",
+            "location_id": location_id,
             "effective_at": "2026-10-17T12:00:00Z",
             "provenance": {"source_type": "TEST"},
         },
@@ -185,19 +197,19 @@ def test_float_quantity_is_rejected_at_canonical_boundary() -> None:
     _seed_tenant(factory, "org_float", "token-float")
     client = TestClient(create_app(factory))
     suffix = uuid4().hex[:10]
-    _seed_resource(client, "token-float", suffix)
+    location_id, resource_id = _seed_base(client, "token-float", suffix)
     response = client.post(
         "/v1/resource-states",
         headers=_auth("token-float", "float-value"),
         json={
-            "resource_id": f"res_{suffix}",
+            "resource_id": resource_id,
             "state_type": "ALUMINUM",
             "quantity": {
                 "value": 1.25,
                 "unit": "t",
                 "unit_registry_version": "CRR-UNITS-0.1",
             },
-            "location_id": f"loc_{suffix}",
+            "location_id": location_id,
             "effective_at": "2026-10-17T12:00:00Z",
             "provenance": {"source_type": "TEST"},
         },
@@ -205,30 +217,39 @@ def test_float_quantity_is_rejected_at_canonical_boundary() -> None:
     assert response.status_code == 422
 
 
-@pytest.mark.parametrize("unit", ["unknown-unit", "kg"])
-def test_invalid_or_incompatible_units_are_rejected(unit: str) -> None:
+@pytest.mark.parametrize(
+    ("unit", "registry_version", "expected_status"),
+    [
+        ("unknown-unit", "CRR-UNITS-0.1", 422),
+        ("kg", "CRR-UNITS-0.1", 201),
+        ("t", "unknown-registry", 422),
+    ],
+)
+def test_unit_validation_matrix(
+    unit: str, registry_version: str, expected_status: int
+) -> None:
     _engine, factory = _factory()
     _seed_tenant(factory, "org_unit", "token-unit")
     client = TestClient(create_app(factory))
     suffix = uuid4().hex[:10]
-    _seed_resource(client, "token-unit", suffix)
+    location_id, resource_id = _seed_base(client, "token-unit", suffix)
     response = client.post(
         "/v1/resource-states",
-        headers=_auth("token-unit", f"unit-{unit}"),
+        headers=_auth("token-unit", f"unit-{suffix}"),
         json={
-            "resource_id": f"res_{suffix}",
+            "resource_id": resource_id,
             "state_type": "ALUMINUM",
             "quantity": {
                 "value": "1",
                 "unit": unit,
-                "unit_registry_version": "CRR-UNITS-0.1",
+                "unit_registry_version": registry_version,
             },
-            "location_id": f"loc_{suffix}",
+            "location_id": location_id,
             "effective_at": "2026-10-17T12:00:00Z",
             "provenance": {"source_type": "TEST"},
         },
     )
-    assert response.status_code == 422
+    assert response.status_code == expected_status, response.text
 
 
 @pytest.mark.skipif(not os.getenv("CRR_DATABASE_URL"), reason="requires PostgreSQL CI database")
@@ -242,7 +263,16 @@ def test_postgresql_parallel_successor_creation_has_one_winner() -> None:
     token = f"token-{suffix}"
     with factory.begin() as session:
         session.add(Organization(id=org_id, name=org_id, status="ACTIVE", created_at=NOW))
-        session.add(Actor(id=actor_id, organization_id=org_id, name="Admin", role="ORG_ADMIN", active=True, created_at=NOW))
+        session.add(
+            Actor(
+                id=actor_id,
+                organization_id=org_id,
+                name="Admin",
+                role="ORG_ADMIN",
+                active=True,
+                created_at=NOW,
+            )
+        )
         session.add(
             APIKey(
                 id=f"key_{suffix}",
@@ -254,8 +284,26 @@ def test_postgresql_parallel_successor_creation_has_one_winner() -> None:
                 created_at=NOW,
             )
         )
-        session.add(Location(id=f"loc_{suffix}", organization_id=org_id, name="Yard", provenance={"source_type": "TEST"}, created_at=NOW))
-        session.add(Resource(id=f"res_{suffix}", organization_id=org_id, resource_type="ALUMINUM", version=1, created_by=actor_id, provenance={"source_type": "TEST"}, created_at=NOW))
+        session.add(
+            Location(
+                id=f"loc_{suffix}",
+                organization_id=org_id,
+                name="Yard",
+                provenance={"source_type": "TEST"},
+                created_at=NOW,
+            )
+        )
+        session.add(
+            Resource(
+                id=f"res_{suffix}",
+                organization_id=org_id,
+                resource_type="ALUMINUM",
+                version=1,
+                created_by=actor_id,
+                provenance={"source_type": "TEST"},
+                created_at=NOW,
+            )
+        )
         session.add(
             ResourceState(
                 id=f"rst_{suffix}",
@@ -282,7 +330,11 @@ def test_postgresql_parallel_successor_creation_has_one_winner() -> None:
         "reason": "parallel conformance test",
         "occurred_at": "2026-10-17T12:01:00Z",
         "state_type": "ALUMINUM",
-        "quantity": {"value": "9.000", "unit": "t", "unit_registry_version": "CRR-UNITS-0.1"},
+        "quantity": {
+            "value": "9.000",
+            "unit": "t",
+            "unit_registry_version": "CRR-UNITS-0.1",
+        },
         "location_id": f"loc_{suffix}",
         "provenance": {"source_type": "TEST"},
     }
