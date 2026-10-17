@@ -57,3 +57,7 @@ jobs:
         env:
           CRR_DATABASE_URL: postgresql+psycopg://crr:crr@localhost:5432/crr
         run: alembic check
+      - name: Verify PostgreSQL conformance
+        env:
+          CRR_DATABASE_URL: postgresql+psycopg://crr:crr@localhost:5432/crr
+        run: pytest tests/test_phase1_conformance_closure.py::test_postgresql_parallel_successor_creation_has_one_winner -q
