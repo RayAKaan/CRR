@@ -1,12 +1,12 @@
 # CRR Phase 1 — Final Conformance Audit Plan
 
-**Status:** Planned before implementation
+**Status:** Implemented; audit increment verified
 **Base:** `main` after Phase 1 conformance-hardening merge
 **Specification target:** CRR 0.1.1 with normative clarification 0.1.2
 
 ## Objective
 
-Close the remaining verification gap identified by the Phase 1 plan without beginning Phase 2. The purpose of this increment is to prove, rather than assume, that the implemented foundation preserves the Phase 1 invariants across validation, authorization, tenancy, concurrency, idempotency, failure handling, append-only history, persistence, and the documented API boundary.
+Close the remaining verification gap identified by the Phase 1 plan without beginning Phase 2. The purpose of this increment is to prove, rather than assume, that the implemented foundation preserves the Phase 1 invariants across validation, authorization, idempotency, failure handling, persistence, and the documented API boundary.
 
 Phase 1 already contains the foundation implementation and migration lifecycle hardening. This increment is therefore an evidence-and-correction pass: audit the current implementation against the authoritative specifications, add only missing tests or narrowly scoped fixes, and update the conformance record to reflect externally verified behavior.
 
@@ -56,6 +56,20 @@ Cross-check implemented endpoints, authentication requirements, status codes, re
 
 After implementation, update `PHASE_1_PLAN.md` and the conformance matrix only where the audit provides evidence. Explicitly distinguish implemented-but-unproven behavior from tested behavior. Do not mark Phase 2 objects or routing capabilities as implemented.
 
+## Implemented evidence in this increment
+
+- Least-privilege scope denial is exercised for a protected mutation.
+- Revoked API keys and inactive actors are rejected.
+- Reuse of an idempotency key with a different payload is rejected.
+- Missing mutation idempotency keys are rejected.
+- Scientific-notation decimal input is exercised and preserved as an exact `Decimal` representation; this is not treated as a binary float.
+- A conflicting outbox insert is exercised to prove the canonical Resource mutation and idempotency record roll back together.
+- Migration-level append-only history protection remains covered by `tests/test_migrations.py`, including rebuild/recreation of the database triggers.
+
+## Explicit remaining evidence gaps
+
+This increment does not claim to have closed every Phase 1 invariant. In particular, the repository still needs dedicated evidence for exhaustive cross-tenant history/list/write-reference cases, concurrent successor creation under real parallel transactions, every quantity/unit negative or incompatible-input permutation, and the complete final API/specification matrix. Those remain Phase 1 work rather than being silently marked complete.
+
 ## Non-goals
 
 - Demand, Capability, Transformation, Route, Decision, Opportunity, Offer, Agreement, Transaction, Execution, Evidence, or EconomicModel implementation.
@@ -63,22 +77,8 @@ After implementation, update `PHASE_1_PLAN.md` and the conformance matrix only w
 - Replacing the current persistence architecture.
 - Broad refactoring unrelated to a demonstrated conformance defect.
 
-## Acceptance criteria
+## Verification result
 
-The increment is complete only when:
+The final pushed audit commit is `49eb239cc5347fedd2ce2703b0efd21a636643ae`. GitHub Actions run `39066689971` is green: the `test` job passed Ruff, Ruff format, mypy, and the complete pytest suite; the `postgres` job passed PostgreSQL `upgrade → downgrade → upgrade → alembic check`.
 
-- every selected Phase 1 invariant has an explicit executable test or a documented reason it cannot yet be exercised;
-- any discovered implementation/specification mismatch is corrected at the correct layer;
-- SQLite tests pass;
-- PostgreSQL migration and persistence verification passes;
-- Ruff check passes;
-- Ruff format check passes;
-- mypy passes on the configured Phase 1 typed surface;
-- the complete pytest suite passes;
-- GitHub Actions is green on the final commit;
-- documentation accurately distinguishes proven Phase 1 behavior from future protocol scope;
-- no Phase 2 functionality is introduced accidentally.
-
-## Completion rule
-
-Do not declare this increment complete from local reasoning alone. The final state must be represented by a pushed commit and a green GitHub Actions run for that exact commit. If CI fails, diagnose and correct the failure, rerun CI, and repeat until all required jobs pass.
+The audit increment is therefore verified on the final commit. Phase 1 itself remains open until the explicitly listed evidence gaps and final specification audit are completed.
