@@ -72,7 +72,10 @@ class Demand:
 
     def __post_init__(self) -> None:
         if not (
-            self.id and self.organization_id and self.required_state and self.created_by
+            self.id
+            and self.organization_id
+            and self.required_state
+            and self.created_by
         ):
             raise DomainError(
                 "Demand identity, organization, required state and creator are required."
