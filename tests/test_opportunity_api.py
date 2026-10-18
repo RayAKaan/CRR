@@ -8,7 +8,16 @@ from sqlalchemy.pool import StaticPool
 
 from crr.api import create_app
 from crr.demand_model import Demand
-from crr.models import Actor, APIKey, Base, Location, Organization, OutboxEvent, Resource, ResourceState
+from crr.models import (
+    Actor,
+    APIKey,
+    Base,
+    Location,
+    Organization,
+    OutboxEvent,
+    Resource,
+    ResourceState,
+)
 from crr.opportunity_model import Opportunity
 
 NOW = datetime(2026, 10, 18, 12, tzinfo=UTC)
@@ -309,4 +318,7 @@ def test_cross_tenant_opportunity_is_hidden():
     assert response.status_code == 404
 
     with factory() as session:
-        assert session.scalar(select(Opportunity).where(Opportunity.id == "opp_org_a")) is not None
+        assert (
+            session.scalar(select(Opportunity).where(Opportunity.id == "opp_org_a"))
+            is not None
+        )
