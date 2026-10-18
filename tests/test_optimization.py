@@ -37,15 +37,20 @@ def candidate(candidate_id: str, status: RouteStatus = RouteStatus.FEASIBLE) -> 
     )
 
 
-def policy(objective: OptimizationObjective, metric: str | None = None) -> OptimizationPolicy:
+def policy(
+    objective: OptimizationObjective,
+    metric: str | None = None,
+    weights: tuple[tuple[str, Decimal], ...] = (),
+    allow_negative: bool = True,
+) -> OptimizationPolicy:
     return OptimizationPolicy(
         id="policy_1",
         version=1,
         objective=objective,
         calculation_version="1",
         metric=metric,
-        weights=(),
-        allow_negative=True,
+        weights=weights,
+        allow_negative=allow_negative,
         provenance={"source": "TEST"},
     )
 
@@ -91,6 +96,56 @@ def test_max_metric_preserves_negative_values_when_allowed():
     )
     assert [item.candidate_id for item in result.ranked] == ["route_b", "route_a"]
     assert result.ranked[0].score == Decimal("-2.00")
+
+
+def test_weighted_objective_uses_signed_weights_deterministically():
+    result = optimize_candidate_set(
+        candidate_set=CandidateSet.from_candidates(
+            "org_a", (candidate("route_a"), candidate("route_b"))
+        ),
+        policy=policy(
+            OptimizationObjective.WEIGHTED,
+            weights=(("cost", Decimal("-1")), ("value", Decimal("2"))),
+        ),
+        metrics_by_candidate={
+            "route_a": {"cost": Decimal("10"), "value": Decimal("6")},
+            "route_b": {"cost": Decimal("2"), "value": Decimal("5")},
+        },
+        organization_id="org_a",
+    )
+    assert [item.candidate_id for item in result.ranked] == ["route_a", "route_b"]
+    assert result.ranked[0].score == Decimal("2")
+    assert dict(result.ranked[0].components) == {
+        "cost": Decimal("-10"),
+        "value": Decimal("12"),
+    }
+
+
+def test_empty_feasible_set_is_valid_and_returns_no_ranks():
+    result = optimize_candidate_set(
+        candidate_set=CandidateSet.from_candidates(
+            "org_a", (candidate("route_bad", RouteStatus.INFEASIBLE),)
+        ),
+        policy=policy(OptimizationObjective.MIN_DURATION),
+        metrics_by_candidate={},
+        organization_id="org_a",
+    )
+    assert result.ranked == ()
+    assert result.excluded_candidate_ids == ("route_bad",)
+
+
+def test_negative_score_is_rejected_when_policy_disallows_it():
+    with pytest.raises(DomainError):
+        optimize_candidate_set(
+            candidate_set=CandidateSet.from_candidates("org_a", (candidate("route_a"),)),
+            policy=policy(
+                OptimizationObjective.MAX_METRIC,
+                "economic_net",
+                allow_negative=False,
+            ),
+            metrics_by_candidate={"route_a": {"economic_net": Decimal("-1")}},
+            organization_id="org_a",
+        )
 
 
 def test_candidate_set_rejects_cross_tenant_and_tampering():
