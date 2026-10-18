@@ -74,7 +74,9 @@ def test_infeasible_candidates_are_excluded():
 
 def test_max_metric_preserves_negative_values_when_allowed():
     result = optimize_candidate_set(
-        candidate_set=CandidateSet.from_candidates("org_a", (candidate("route_a"), candidate("route_b"))),
+        candidate_set=CandidateSet.from_candidates(
+            "org_a", (candidate("route_a"), candidate("route_b"))
+        ),
         policy=policy(OptimizationObjective.MAX_METRIC, "economic_net"),
         metrics_by_candidate={
             "route_a": {"economic_net": Decimal("-10.00")},
