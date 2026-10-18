@@ -79,9 +79,7 @@ class DecisionAdvisory:
             raise DomainError("Advisory candidate IDs must be unique.")
 
 
-def _objective_rationale(
-    policy: OptimizationPolicy, leading: AdvisoryAlternative
-) -> str:
+def _objective_rationale(policy: OptimizationPolicy, leading: AdvisoryAlternative) -> str:
     if policy.objective is OptimizationObjective.MIN_DURATION:
         return (
             f"{leading.candidate_id} ranks first because it has the lowest validated "
@@ -152,9 +150,7 @@ def build_decision_advisory(
     )
     leading = alternatives[0] if alternatives else None
     if leading is None:
-        rationale = (
-            "No feasible route received a rank; the advisory cannot recommend a route.",
-        )
+        rationale = ("No feasible route received a rank; the advisory cannot recommend a route.",)
         leading_id = None
     else:
         rationale = (
