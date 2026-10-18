@@ -2,6 +2,18 @@
 
 from crr.domain.capability import Capability, CapabilityStatus, validate_capability_tenant
 from crr.domain.demand import Demand, DemandStatus, validate_demand_tenant
+from crr.domain.economics import (
+    EconomicComponent,
+    EconomicComponentKind,
+    EconomicModel,
+    EconomicModelStatus,
+    EconomicPerspective,
+    EconomicPerspectiveResult,
+    EconomicResult,
+    Money,
+    RoundingPolicy,
+    evaluate_economic_model,
+)
 from crr.domain.errors import DomainError, StaleVersionError, TenantBoundaryError
 from crr.domain.logistics import (
     LogisticsEvaluation,
@@ -37,8 +49,16 @@ __all__ = [
     "Demand",
     "DemandStatus",
     "DomainError",
+    "EconomicComponent",
+    "EconomicComponentKind",
+    "EconomicModel",
+    "EconomicModelStatus",
+    "EconomicPerspective",
+    "EconomicPerspectiveResult",
+    "EconomicResult",
     "LogisticsEvaluation",
     "LogisticsRejection",
+    "Money",
     "Quantity",
     "QuantityValidationError",
     "Rejection",
@@ -46,6 +66,7 @@ __all__ = [
     "RouteCandidate",
     "RouteLeg",
     "RouteStatus",
+    "RoundingPolicy",
     "StaleVersionError",
     "StateTransition",
     "TenantBoundaryError",
@@ -56,6 +77,7 @@ __all__ = [
     "UnitDefinition",
     "UnitRegistry",
     "evaluate_direct_route",
+    "evaluate_economic_model",
     "evaluate_logistics_leg",
     "evaluate_regulatory_eligibility",
     "evaluate_transformation_route",

@@ -6,6 +6,7 @@ from sqlalchemy import engine_from_config, pool
 
 import crr.capability_model
 import crr.demand_model
+import crr.economic_model
 import crr.transformation_model
 from crr.models import Base
 
