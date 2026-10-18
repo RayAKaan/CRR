@@ -10,6 +10,11 @@ from crr.domain.resource_state import (
     TransitionKind,
     transition_state,
 )
+from crr.domain.transformation import (
+    Transformation,
+    TransformationStatus,
+    validate_transformation_tenant,
+)
 
 __all__ = [
     "Capability",
@@ -23,10 +28,13 @@ __all__ = [
     "StaleVersionError",
     "StateTransition",
     "TenantBoundaryError",
+    "Transformation",
+    "TransformationStatus",
     "TransitionKind",
     "UnitDefinition",
     "UnitRegistry",
     "transition_state",
     "validate_capability_tenant",
     "validate_demand_tenant",
+    "validate_transformation_tenant",
 ]
