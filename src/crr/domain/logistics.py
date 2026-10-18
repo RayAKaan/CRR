@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Any
 
 from crr.domain.errors import DomainError, TenantBoundaryError
-from crr.domain.quantity import Quantity, UnitRegistry
+from crr.domain.quantity import Quantity, UnitRegistry, exact_decimal
 
 
 class TransportMode(StrEnum):
@@ -44,11 +44,12 @@ class LogisticsEvaluation:
     provenance: dict[str, Any]
 
     def __post_init__(self) -> None:
+        distance = exact_decimal(self.distance_km)
         if not self.organization_id:
             raise DomainError("Logistics organization is required.")
         if not self.source_location_id or not self.destination_location_id:
             raise DomainError("Logistics source and destination locations are required.")
-        if self.distance_km < 0:
+        if distance < 0:
             raise DomainError("Logistics distance cannot be negative.")
         if self.travel_duration_seconds < 0:
             raise DomainError("Logistics travel duration cannot be negative.")
@@ -65,6 +66,7 @@ class LogisticsEvaluation:
             raise DomainError("A feasible logistics evaluation cannot contain rejections.")
         if not self.feasible and not self.rejections:
             raise DomainError("An infeasible logistics evaluation requires rejection reasons.")
+        object.__setattr__(self, "distance_km", distance)
         object.__setattr__(self, "start_at", self.start_at.astimezone(UTC))
         object.__setattr__(self, "arrival_at", self.arrival_at.astimezone(UTC))
 
@@ -106,11 +108,13 @@ def evaluate_logistics_leg(
         raise DomainError("Destination window end must include a timezone.")
     if destination_window_start >= destination_window_end:
         raise DomainError("Destination timing window must have start before end.")
-    if distance_km < 0:
+    distance = exact_decimal(distance_km)
+    max_distance = None if max_distance_km is None else exact_decimal(max_distance_km)
+    if distance < 0:
         raise DomainError("Logistics distance cannot be negative.")
     if travel_duration_seconds < 0:
         raise DomainError("Logistics travel duration cannot be negative.")
-    if max_distance_km is not None and max_distance_km < 0:
+    if max_distance is not None and max_distance < 0:
         raise DomainError("Maximum logistics distance cannot be negative.")
 
     start = start_at.astimezone(UTC)
@@ -139,7 +143,7 @@ def evaluate_logistics_leg(
         rejections.append(
             _reject("INSUFFICIENT_QUANTITY", source_location_id, "Zero quantity is not routing supply.")
         )
-    if max_distance_km is not None and distance_km > max_distance_km:
+    if max_distance is not None and distance > max_distance:
         rejections.append(
             _reject(
                 "LOCATION_INFEASIBLE",
@@ -178,7 +182,7 @@ def evaluate_logistics_leg(
         transport_mode=transport_mode,
         source_quantity=source_quantity,
         transport_capacity=transport_capacity,
-        distance_km=distance_km,
+        distance_km=distance,
         travel_duration_seconds=travel_duration_seconds,
         start_at=start,
         arrival_at=arrival,
