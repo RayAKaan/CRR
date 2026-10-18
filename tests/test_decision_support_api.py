@@ -163,7 +163,8 @@ def test_advisory_mode_returns_ranked_human_review_output_without_mutation():
     assert advisory["mode"] == "ADVISORY"
     assert advisory["leading_candidate_id"] == "route_rst_a_dem_a"
     assert advisory["human_review_required"] is True
-    assert advisory["candidate_set_fingerprint"] == data["optimization"]["candidate_set_fingerprint"]
+    fingerprint = data["optimization"]["candidate_set_fingerprint"]
+    assert advisory["candidate_set_fingerprint"] == fingerprint
     assert advisory["alternatives"][0]["score"] == "0"
 
     with engine.connect() as connection:
