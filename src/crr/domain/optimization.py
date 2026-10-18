@@ -161,11 +161,7 @@ def _score(
 
 
 def _excluded_ids(candidates: tuple[RouteCandidate, ...]) -> tuple[str, ...]:
-    ids = [
-        candidate.id
-        for candidate in candidates
-        if candidate.status is not RouteStatus.FEASIBLE
-    ]
+    ids = [candidate.id for candidate in candidates if candidate.status is not RouteStatus.FEASIBLE]
     return tuple(sorted(ids))
 
 
