@@ -21,6 +21,7 @@ from crr.domain.logistics import (
     TransportMode,
     evaluate_logistics_leg,
 )
+from crr.domain.opportunity import Opportunity, OpportunityStatus
 from crr.domain.quantity import Quantity, QuantityValidationError, UnitDefinition, UnitRegistry
 from crr.domain.regulatory import evaluate_regulatory_eligibility
 from crr.domain.resource_state import (
@@ -59,6 +60,8 @@ __all__ = [
     "LogisticsEvaluation",
     "LogisticsRejection",
     "Money",
+    "Opportunity",
+    "OpportunityStatus",
     "Quantity",
     "QuantityValidationError",
     "Rejection",
