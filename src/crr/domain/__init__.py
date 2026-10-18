@@ -3,6 +3,12 @@
 from crr.domain.capability import Capability, CapabilityStatus, validate_capability_tenant
 from crr.domain.demand import Demand, DemandStatus, validate_demand_tenant
 from crr.domain.errors import DomainError, StaleVersionError, TenantBoundaryError
+from crr.domain.logistics import (
+    LogisticsEvaluation,
+    LogisticsRejection,
+    TransportMode,
+    evaluate_logistics_leg,
+)
 from crr.domain.quantity import Quantity, QuantityValidationError, UnitDefinition, UnitRegistry
 from crr.domain.resource_state import (
     ResourceState,
@@ -30,6 +36,8 @@ __all__ = [
     "Demand",
     "DemandStatus",
     "DomainError",
+    "LogisticsEvaluation",
+    "LogisticsRejection",
     "Quantity",
     "QuantityValidationError",
     "Rejection",
@@ -42,10 +50,12 @@ __all__ = [
     "TenantBoundaryError",
     "Transformation",
     "TransformationStatus",
+    "TransportMode",
     "TransitionKind",
     "UnitDefinition",
     "UnitRegistry",
     "evaluate_direct_route",
+    "evaluate_logistics_leg",
     "evaluate_transformation_route",
     "transition_state",
     "validate_capability_tenant",
