@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated, Any
@@ -16,12 +17,14 @@ from crr.domain.capability import Capability as DomainCapability
 from crr.domain.capability import CapabilityStatus
 from crr.domain.demand import Demand as DomainDemand
 from crr.domain.demand import DemandStatus
+from crr.domain.errors import DomainError
 from crr.domain.quantity import Quantity
 from crr.domain.regulatory import evaluate_regulatory_eligibility
 from crr.domain.resource_state import ResourceState as DomainResourceState
 from crr.domain.routing import (
     Rejection,
     RouteCandidate,
+    RouteLeg,
     RouteStatus,
     evaluate_direct_route,
     evaluate_transformation_route,
@@ -86,7 +89,9 @@ def _domain_demand(item: Demand) -> DomainDemand:
         organization_id=item.organization_id,
         required_state=item.required_state,
         quantity_min=_quantity(item.quantity_min_value, item.unit, item.unit_registry_version),
-        quantity_target=_quantity(item.quantity_target_value, item.unit, item.unit_registry_version),
+        quantity_target=_quantity(
+            item.quantity_target_value, item.unit, item.unit_registry_version
+        ),
         quantity_max=_quantity(item.quantity_max_value, item.unit, item.unit_registry_version),
         remaining_quantity=_quantity(
             item.remaining_quantity_value, item.unit, item.unit_registry_version
@@ -192,12 +197,16 @@ def _candidate_data(candidate: RouteCandidate) -> dict[str, Any]:
     }
 
 
-def _with_rejections(candidate: RouteCandidate, rejections: tuple[Rejection, ...]) -> RouteCandidate:
+def _with_rejections(
+    candidate: RouteCandidate, rejections: tuple[Rejection, ...]
+) -> RouteCandidate:
     if not rejections:
         return candidate
-    from dataclasses import replace
-
-    return replace(candidate, status=RouteStatus.INFEASIBLE, rejections=candidate.rejections + rejections)
+    return replace(
+        candidate,
+        status=RouteStatus.INFEASIBLE,
+        rejections=candidate.rejections + rejections,
+    )
 
 
 def _deterministic_start(demand: DomainDemand, source: DomainResourceState) -> datetime:
@@ -207,6 +216,30 @@ def _deterministic_start(demand: DomainDemand, source: DomainResourceState) -> d
 def _location_constraint(demand: DomainDemand) -> str | None:
     value = demand.location_constraints.get("location_id")
     return value if isinstance(value, str) and value else None
+
+
+def _location_rejected_candidate(
+    source: DomainResourceState, demand: DomainDemand
+) -> RouteCandidate:
+    return RouteCandidate(
+        id=f"route_{source.id}_{demand.id}",
+        organization_id=source.organization_id,
+        source_resource_state_id=source.id,
+        target_demand_id=demand.id,
+        legs=(RouteLeg("DIRECT", source.id, source.state_type, demand.required_state),),
+        status=RouteStatus.INFEASIBLE,
+        rejections=(
+            Rejection(
+                "LOCATION_INFEASIBLE",
+                source.location_id,
+                "Source location does not satisfy demand location.",
+            ),
+        ),
+        source_version=source.version,
+        target_version=demand.version,
+        evaluated_at=datetime.now(UTC),
+        provenance={"source": "CRR_DETERMINISTIC_ROUTER"},
+    )
 
 
 @router.post("/v1/routes/compute")
@@ -240,36 +273,23 @@ def compute_routes(
         registry.validate(source.quantity)
         registry.validate(demand.quantity_min)
         registry.validate(demand.quantity_max)
-    except Exception as exc:
+    except DomainError as exc:
         _fail(request, 422, "UNIT_VALIDATION_FAILED", "VALIDATION_FAILURE", str(exc))
 
     if body.valid_until is not None and body.valid_until.astimezone(UTC) < datetime.now(UTC):
-        _fail(request, 422, "ROUTE_REQUEST_EXPIRED", "VALIDATION_FAILURE", "valid_until is in the past.")
+        _fail(
+            request,
+            422,
+            "ROUTE_REQUEST_EXPIRED",
+            "VALIDATION_FAILURE",
+            "valid_until is in the past.",
+        )
 
-    candidates: list[RouteCandidate] = []
     location_id = _location_constraint(demand)
     if location_id is not None and location_id != source.location_id:
-        candidates.append(
-            RouteCandidate(
-                id=f"route_{source.id}_{demand.id}",
-                organization_id=principal.organization_id,
-                source_resource_state_id=source.id,
-                target_demand_id=demand.id,
-                legs=(__import__("crr.domain.routing", fromlist=["RouteLeg"]).RouteLeg(
-                    "DIRECT", source.id, source.state_type, demand.required_state
-                ),),
-                status=RouteStatus.INFEASIBLE,
-                rejections=(
-                    Rejection("LOCATION_INFEASIBLE", source.location_id, "Source location does not satisfy demand location."),
-                ),
-                source_version=source.version,
-                target_version=demand.version,
-                evaluated_at=datetime.now(UTC),
-                provenance={"source": "CRR_DETERMINISTIC_ROUTER"},
-            )
-        )
+        candidates = [_location_rejected_candidate(source, demand)]
     else:
-        candidates.append(
+        candidates = [
             evaluate_direct_route(
                 source_id=source.id,
                 source_version=source.version,
@@ -286,7 +306,7 @@ def compute_routes(
                 unit_registry=registry,
                 evaluated_at=datetime.now(UTC),
             )
-        )
+        ]
 
     capabilities = session.scalars(
         select(Capability).where(Capability.organization_id == principal.organization_id)
@@ -316,15 +336,12 @@ def compute_routes(
                 unit_registry=registry,
                 start_at=_deterministic_start(demand, source),
             )
-            candidate = _with_rejections(
-                candidate,
-                evaluate_regulatory_eligibility(
-                    demand=demand,
-                    capability=capability,
-                    transformation=transformation,
-                ),
+            regulatory_rejections = evaluate_regulatory_eligibility(
+                demand=demand,
+                capability=capability,
+                transformation=transformation,
             )
-            candidates.append(candidate)
+            candidates.append(_with_rejections(candidate, regulatory_rejections))
 
     candidates.sort(key=lambda item: item.id)
     return _envelope(
