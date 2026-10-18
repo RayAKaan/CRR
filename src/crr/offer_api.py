@@ -468,10 +468,7 @@ def transition_offer(
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
-    digest = _body_hash(
-        body.model_dump(mode="json")
-        | {"offer_id": offer_id, "if_match": if_match}
-    )
+    digest = _body_hash(body.model_dump(mode="json") | {"offer_id": offer_id, "if_match": if_match})
     prior = _idempotency(session, principal.organization_id, idempotency_key, digest, request)
     _check_reuse(prior, digest, request)
     if prior:
