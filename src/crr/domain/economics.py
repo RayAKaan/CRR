@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from decimal import Decimal, ROUND_CEILING, ROUND_DOWN, ROUND_FLOOR, ROUND_HALF_EVEN, ROUND_HALF_UP, ROUND_UP
+from decimal import (
+    ROUND_CEILING,
+    ROUND_DOWN,
+    ROUND_FLOOR,
+    ROUND_HALF_EVEN,
+    ROUND_HALF_UP,
+    ROUND_UP,
+    Decimal,
+)
 from enum import StrEnum
 from typing import Any
 
@@ -50,7 +58,11 @@ class Money:
             raise DomainError("Money must use an exact decimal representation.")
         if not isinstance(self.amount, Decimal) or not self.amount.is_finite():
             raise DomainError("Money amount must be a finite Decimal.")
-        if len(self.currency) != 3 or not self.currency.isalpha() or self.currency != self.currency.upper():
+        if (
+            len(self.currency) != 3
+            or not self.currency.isalpha()
+            or self.currency != self.currency.upper()
+        ):
             raise DomainError("Currency must be a three-letter uppercase code.")
 
     def add(self, other: Money) -> Money:
@@ -73,7 +85,10 @@ class EconomicComponent:
         if not self.source.strip():
             raise DomainError("Economic component source is required.")
         if self.amount.amount < 0:
-            raise DomainError("Economic component amounts cannot be negative; represent negative net outcomes through costs exceeding value.")
+            raise DomainError(
+                "Economic component amounts cannot be negative; "
+                "represent negative net outcomes through costs exceeding value."
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,7 +130,11 @@ class EconomicModel:
             raise DomainError("Economic model identity, organization, and creator are required.")
         if self.version < 1:
             raise DomainError("Economic model version must be positive.")
-        if len(self.currency) != 3 or not self.currency.isalpha() or self.currency != self.currency.upper():
+        if (
+            len(self.currency) != 3
+            or not self.currency.isalpha()
+            or self.currency != self.currency.upper()
+        ):
             raise DomainError("Currency must be a three-letter uppercase code.")
         if not self.calculation_version.strip():
             raise DomainError("Calculation version is required.")
@@ -187,8 +206,12 @@ def evaluate_economic_model(
     if not model.is_valid_at(timestamp):
         raise DomainError("Economic model is not active within its validity window.")
 
-    values: dict[EconomicPerspective, Decimal] = {item: Decimal("0") for item in EconomicPerspective}
-    costs: dict[EconomicPerspective, Decimal] = {item: Decimal("0") for item in EconomicPerspective}
+    values: dict[EconomicPerspective, Decimal] = {
+        item: Decimal("0") for item in EconomicPerspective
+    }
+    costs: dict[EconomicPerspective, Decimal] = {
+        item: Decimal("0") for item in EconomicPerspective
+    }
     for component in model.components:
         if component.amount.currency != model.currency:
             raise DomainError("Economic component currency does not match model currency.")
