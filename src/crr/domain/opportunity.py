@@ -81,7 +81,9 @@ class Opportunity:
         if self.valid_until.tzinfo is None or self.valid_until.utcoffset() is None:
             raise DomainError("Opportunity valid_until must be timezone-aware.")
         if self.valid_from >= self.valid_until:
-            raise DomainError("Opportunity validity window must have valid_from before valid_until.")
+            raise DomainError(
+                "Opportunity validity window must have valid_from before valid_until."
+            )
         if self.version < 1:
             raise DomainError("Opportunity version must be positive.")
         if self.created_at.tzinfo is None or self.updated_at.tzinfo is None:
@@ -96,7 +98,12 @@ class Opportunity:
             raise DomainError(
                 f"Invalid Opportunity transition: {self.status.value} -> {new_status.value}."
             )
-        return replace(self, status=new_status, version=self.version + 1, updated_at=datetime.now(self.updated_at.tzinfo))
+        return replace(
+            self,
+            status=new_status,
+            version=self.version + 1,
+            updated_at=datetime.now(self.updated_at.tzinfo),
+        )
 
     def validate_tenant(self, organization_id: str) -> None:
         if self.organization_id != organization_id:
