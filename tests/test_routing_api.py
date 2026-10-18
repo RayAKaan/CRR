@@ -8,14 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from crr.api import create_app
 from crr.demand_model import Demand
-from crr.models import (
-    Actor,
-    APIKey,
-    Base,
-    Location,
-    Organization,
-    ResourceState,
-)
+from crr.models import Actor, APIKey, Base, Location, Organization, Resource, ResourceState
 
 NOW = datetime(2026, 10, 18, 12, tzinfo=UTC)
 
@@ -73,72 +66,67 @@ def auth(token: str) -> dict[str, str]:
 
 
 def seed_direct(engine, org_id: str = "org_a", state_type: str = "ALUMINUM_SCRAP") -> None:
-    with engine.begin() as connection:
-        connection.exec_driver_sql(
-            "INSERT INTO resources (id, organization_id, resource_type, description, version, created_by, provenance, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                "res_a",
-                org_id,
-                state_type,
-                None,
-                1,
-                f"act_{org_id}",
-                '{"source_type":"TEST"}',
-                NOW.isoformat(),
-            ),
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    with factory.begin() as session:
+        session.add(
+            Resource(
+                id="res_a",
+                organization_id=org_id,
+                resource_type=state_type,
+                description=None,
+                version=1,
+                created_by=f"act_{org_id}",
+                provenance={"source_type": "TEST"},
+                created_at=NOW,
+            )
         )
-        connection.exec_driver_sql(
-            "INSERT INTO resource_states (id, organization_id, resource_id, resource_version, state_type, quantity_value, unit, unit_registry_version, location_id, effective_at, recorded_at, created_by, provenance, quality, physical_properties, predecessor_state_ids) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                "rst_a",
-                org_id,
-                "res_a",
-                1,
-                state_type,
-                "100.000",
-                "t",
-                "CRR-UNITS-0.1",
-                f"loc_{org_id}",
-                NOW.isoformat(),
-                NOW.isoformat(),
-                f"act_{org_id}",
-                '{"source_type":"TEST"}',
-                "{}",
-                "{}",
-                "[]",
-            ),
+        session.add(
+            ResourceState(
+                id="rst_a",
+                organization_id=org_id,
+                resource_id="res_a",
+                resource_version=1,
+                state_type=state_type,
+                quantity_value="100.000",
+                unit="t",
+                unit_registry_version="CRR-UNITS-0.1",
+                location_id=f"loc_{org_id}",
+                effective_at=NOW,
+                recorded_at=NOW,
+                created_by=f"act_{org_id}",
+                provenance={"source_type": "TEST"},
+                quality={},
+                physical_properties={},
+                predecessor_state_ids=[],
+            )
         )
-        connection.exec_driver_sql(
-            "INSERT INTO demands (id, organization_id, required_state, quantity_min_value, quantity_target_value, quantity_max_value, remaining_quantity_value, unit, unit_registry_version, status, location_constraints, timing_start, timing_end, quality_requirements, pricing_constraints, certifications, regulatory_constraints, substitutions, recurrence, version, created_by, provenance, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                "dem_a",
-                org_id,
-                state_type,
-                "10.000",
-                "20.000",
-                "30.000",
-                "20.000",
-                "t",
-                "CRR-UNITS-0.1",
-                "ACTIVE",
-                "{}",
-                NOW.isoformat(),
-                "2026-10-18T18:00:00+00:00",
-                "{}",
-                "{}",
-                "[]",
-                "{}",
-                "[]",
-                "{}",
-                1,
-                f"act_{org_id}",
-                '{"source_type":"TEST"}',
-                NOW.isoformat(),
-                NOW.isoformat(),
-            ),
+        session.add(
+            Demand(
+                id="dem_a",
+                organization_id=org_id,
+                required_state=state_type,
+                quantity_min_value="10.000",
+                quantity_target_value="20.000",
+                quantity_max_value="30.000",
+                remaining_quantity_value="20.000",
+                unit="t",
+                unit_registry_version="CRR-UNITS-0.1",
+                status="ACTIVE",
+                location_constraints={},
+                timing_start=NOW,
+                timing_end=datetime(2026, 10, 18, 18, tzinfo=UTC),
+                quality_requirements={},
+                pricing_constraints={},
+                certifications=[],
+                regulatory_constraints={},
+                substitutions=[],
+                recurrence={},
+                version=1,
+                created_by=f"act_{org_id}",
+                provenance={"source_type": "TEST"},
+                created_at=NOW,
+                updated_at=NOW,
+            )
         )
 
 
@@ -198,7 +186,8 @@ def test_routes_compute_rejects_zero_supply_and_malformed_inline_authority():
         json={"source_resource_state_id": "rst_a", "target_demand_id": "dem_a"},
     )
     assert zero.status_code == 200
-    assert zero.json()["data"]["candidates"][0]["rejections"][0]["code"] == "INSUFFICIENT_QUANTITY"
+    rejection = zero.json()["data"]["candidates"][0]["rejections"][0]
+    assert rejection["code"] == "INSUFFICIENT_QUANTITY"
 
     malformed = client.post(
         "/v1/routes/compute",
