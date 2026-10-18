@@ -1,6 +1,6 @@
 # CRR Phase 3G — Bounded Decision Support Foundation Plan
 
-**Status:** Planned
+**Status:** Complete
 **Specification target:** CRR 0.1.1 with normative clarification 0.1.2
 **Base:** Phase 3F deterministic optimization and ranking foundation merged to `main`
 
@@ -127,7 +127,7 @@ No new persistence or migration is required. Decision advisories are derived com
 
 ## 9. Documentation synchronization
 
-The existing decision/routing specification already places decision support after optimization and before future execution semantics. This plan defines only the bounded deterministic advisory behavior implemented by the reference API. No conflicting normative semantics are introduced.
+The existing decision/routing specification already places decision support after optimization and before future execution semantics. This increment adds no conflicting normative semantics; it implements the bounded deterministic advisory boundary already implied by the routing architecture.
 
 ## 10. Definition of done
 
@@ -155,3 +155,37 @@ The existing decision/routing specification already places decision support afte
 8. Diagnose and fix every CI failure without weakening requirements.
 9. Synchronize documentation after behavior is proven.
 10. Open the Phase 3G PR with closure evidence.
+
+## 12. Closure evidence
+
+**PR:** #18 — Phase 3G: bounded deterministic decision support
+
+**Final implementation commit:** `b717b9eb61717705a7a464487437dc49619d831e`
+
+**Final fully green GitHub Actions run:** `39146549405`
+
+### Test job
+
+- Ruff check: PASS
+- Ruff format check: PASS
+- mypy: PASS
+- pytest: PASS
+
+### PostgreSQL job
+
+- migration upgrade: PASS
+- migration downgrade: PASS
+- database rebuild: PASS
+- SQLAlchemy/model alignment: PASS
+- PostgreSQL conformance: PASS
+
+### Closure notes
+
+Intermediate CI failures were diagnosed and corrected without weakening requirements or removing tests:
+
+1. Ruff import/line-length issues in the new decision-support and API test surface were corrected.
+2. Ruff formatter differences were corrected to the repository's canonical formatting.
+3. mypy correctly identified the need for an explicitly variadic rationale tuple type; the domain contract was corrected rather than suppressing the error.
+4. The final run `39146549405` is fully green across both test and PostgreSQL jobs.
+
+No migration, persistence, canonical-state mutation, reservation, transaction, execution, autonomous route selection, external factual source, probabilistic confidence, or Jev/LLM inference was introduced.
