@@ -116,9 +116,7 @@ def test_required_certification_and_control_are_enforced():
 def test_safety_control_is_hard_blocking():
     result = evaluate_regulatory_eligibility(
         demand=demand(),
-        capability=capability(
-            regulatory_constraints={"eligible": True, "safety_controls": {}}
-        ),
+        capability=capability(regulatory_constraints={"eligible": True, "safety_controls": {}}),
         transformation=transformation(
             regulatory_requirements={"required_safety_controls": ["guarded"]}
         ),
@@ -130,8 +128,6 @@ def test_unresolved_regulatory_uncertainty_is_not_inferred_as_permission():
     result = evaluate_regulatory_eligibility(
         demand=demand(),
         capability=capability(),
-        transformation=transformation(
-            regulatory_requirements={"regulatory_uncertainty": True}
-        ),
+        transformation=transformation(regulatory_requirements={"regulatory_uncertainty": True}),
     )
     assert result[0].code == "REGULATORY_BLOCK"
