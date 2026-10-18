@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from hashlib import sha256
 from typing import Annotated, Any
 from uuid import uuid4
 
@@ -13,7 +12,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from crr.demand_model import Demand
-from crr.domain.errors import DomainError, StaleVersionError
+from crr.domain.errors import DomainError
 from crr.domain.opportunity import Opportunity as DomainOpportunity
 from crr.domain.opportunity import OpportunityStatus
 from crr.domain.quantity import Quantity
@@ -80,7 +79,8 @@ def _candidate(body: OpportunityInput) -> RouteCandidate:
         ),
         status=RouteStatus.FEASIBLE,
         rejections=tuple(
-            Rejection(item.code, item.object_id, item.message) for item in snapshot.rejections
+            Rejection(item.code, item.object_id, item.message)
+            for item in snapshot.rejections
         ),
         source_version=snapshot.source_version,
         target_version=snapshot.target_version,
@@ -89,7 +89,7 @@ def _candidate(body: OpportunityInput) -> RouteCandidate:
     )
 
 
-def _fingerprint(candidate: RouteCandidate, body: OpportunityInput) -> str:
+def _fingerprint(candidate: RouteCandidate) -> str:
     from crr.domain.optimization import fingerprint_candidates
 
     return fingerprint_candidates((candidate,))
@@ -170,7 +170,13 @@ def _check_reuse(prior, digest: str, request: Request):
         )
 
 
-def _remember(session: Session, organization_id: str, key: str, digest: str, object_id: str):
+def _remember(
+    session: Session,
+    organization_id: str,
+    key: str,
+    digest: str,
+    object_id: str,
+):
     session.add(
         IdempotencyRecord(
             organization_id=organization_id,
@@ -207,14 +213,24 @@ def _event(
             correlation_id=request.state.request_id,
             causation_id=None,
             idempotency_key=key,
-            payload={"opportunity_id": item.id, "version": item.version, "status": item.status},
+            payload={
+                "opportunity_id": item.id,
+                "version": item.version,
+                "status": item.status,
+            },
             provenance={"source_type": "CRR_API", "request_id": request.state.request_id},
             schema_version="0.1",
         )
     )
 
 
-def _replay(session: Session, response: Response, request: Request, prior, organization_id: str):
+def _replay(
+    session: Session,
+    response: Response,
+    request: Request,
+    prior,
+    organization_id: str,
+):
     item = _find(session, prior.object_id, organization_id)
     if item is None:
         _fail(
@@ -238,7 +254,7 @@ def _validate_source(
     candidate = _candidate(body)
     if candidate.organization_id != principal.organization_id:
         _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Route candidate not found.")
-    if candidate.rejections:
+    if candidate.rejections or candidate.status is not RouteStatus.FEASIBLE:
         _fail(
             request,
             409,
@@ -246,8 +262,6 @@ def _validate_source(
             "DOMAIN_CONFLICT",
             "Only feasible route candidates may become Opportunities.",
         )
-    if candidate.status is not RouteStatus.FEASIBLE:
-        _fail(request, 409, "ROUTE_NOT_FEASIBLE", "DOMAIN_CONFLICT", "Route is not feasible.")
 
     source = session.scalar(
         select(ResourceState).where(
@@ -262,8 +276,17 @@ def _validate_source(
         )
     )
     if source is None or demand is None:
-        _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Opportunity source object not found.")
-    if source.resource_version != candidate.source_version or demand.version != candidate.target_version:
+        _fail(
+            request,
+            404,
+            "NOT_FOUND",
+            "NOT_FOUND",
+            "Opportunity source object not found.",
+        )
+    if (
+        source.resource_version != candidate.source_version
+        or demand.version != candidate.target_version
+    ):
         _fail(
             request,
             409,
@@ -323,12 +346,20 @@ def _validate_source(
             )
 
     registry = request.app.state.unit_registry
+    quantity = Quantity(
+        body.quantity_value,
+        body.quantity_unit,
+        body.unit_registry_version,
+    )
     try:
-        registry.validate(Quantity(body.quantity_value, body.quantity_unit, body.unit_registry_version))
+        registry.validate(quantity)
     except DomainError as exc:
         _fail(request, 422, "UNIT_VALIDATION_FAILED", "VALIDATION_FAILURE", str(exc))
 
-    if body.quantity_value > demand.quantity_max_value or body.quantity_value > source.quantity_value:
+    if (
+        body.quantity_value > demand.quantity_max_value
+        or body.quantity_value > source.quantity_value
+    ):
         _fail(
             request,
             422,
@@ -347,65 +378,51 @@ def _validate_source(
     return source, demand, economic_model, candidate
 
 
-@router.post("/v1/opportunities", status_code=201)
-def create_opportunity(
+def _build_domain_item(
     body: OpportunityInput,
-    request: Request,
-    response: Response,
-    session: Annotated[Session, Depends(_session_dependency())],
-    principal: Annotated[Any, Depends(_scope_dependency("opportunities:write"))],
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-):
-    digest = _body_hash(body.model_dump(mode="json"))
-    prior = _idempotency(session, principal.organization_id, idempotency_key, digest, request)
-    _check_reuse(prior, digest, request)
-    if prior:
-        return _replay(session, response, request, prior, principal.organization_id)
+    principal: Any,
+    source: ResourceState,
+    demand: Demand,
+    economic_model: EconomicModel | None,
+    candidate: RouteCandidate,
+    now: datetime,
+) -> DomainOpportunity:
+    return DomainOpportunity(
+        id=body.id or f"opp_{uuid4().hex}",
+        organization_id=principal.organization_id,
+        route_candidate_id=candidate.id,
+        candidate_set_fingerprint=body.candidate_set_fingerprint,
+        source_resource_state_id=source.id,
+        source_resource_state_version=source.resource_version,
+        target_demand_id=demand.id,
+        target_demand_version=demand.version,
+        route_provenance={
+            "candidate": body.route_candidate.model_dump(mode="json"),
+            "candidate_set_fingerprint": body.candidate_set_fingerprint,
+        },
+        advisory_provenance=body.advisory_provenance,
+        economic_model_id=economic_model.id if economic_model is not None else None,
+        economic_model_version=economic_model.version if economic_model is not None else None,
+        commercial_perspective=body.commercial_perspective,
+        currency=body.currency,
+        quantity=Quantity(
+            body.quantity_value,
+            body.quantity_unit,
+            body.unit_registry_version,
+        ),
+        valid_from=body.valid_from,
+        valid_until=body.valid_until,
+        status=OpportunityStatus(body.status),
+        version=1,
+        created_by=principal.actor_id,
+        provenance=body.provenance,
+        created_at=now,
+        updated_at=now,
+    )
 
-    source, demand, economic_model, candidate = _validate_source(session, request, principal, body)
-    if _fingerprint(candidate, body) != body.candidate_set_fingerprint:
-        _fail(
-            request,
-            409,
-            "CANDIDATE_SET_TAMPERED",
-            "DOMAIN_CONFLICT",
-            "Route provenance does not match its declared candidate-set fingerprint.",
-        )
 
-    now = datetime.now(UTC)
-    try:
-        domain_item = DomainOpportunity(
-            id=body.id or f"opp_{uuid4().hex}",
-            organization_id=principal.organization_id,
-            route_candidate_id=candidate.id,
-            candidate_set_fingerprint=body.candidate_set_fingerprint,
-            source_resource_state_id=source.id,
-            source_resource_state_version=source.resource_version,
-            target_demand_id=demand.id,
-            target_demand_version=demand.version,
-            route_provenance={
-                "candidate": body.route_candidate.model_dump(mode="json"),
-                "candidate_set_fingerprint": body.candidate_set_fingerprint,
-            },
-            advisory_provenance=body.advisory_provenance,
-            economic_model_id=economic_model.id if economic_model is not None else None,
-            economic_model_version=economic_model.version if economic_model is not None else None,
-            commercial_perspective=body.commercial_perspective,
-            currency=body.currency,
-            quantity=Quantity(body.quantity_value, body.quantity_unit, body.unit_registry_version),
-            valid_from=body.valid_from,
-            valid_until=body.valid_until,
-            status=OpportunityStatus(body.status),
-            version=1,
-            created_by=principal.actor_id,
-            provenance=body.provenance,
-            created_at=now,
-            updated_at=now,
-        )
-    except DomainError as exc:
-        _fail(request, 422, exc.code, "VALIDATION_FAILURE", str(exc))
-
-    item = Opportunity(
+def _persist_item(domain_item: DomainOpportunity) -> Opportunity:
+    return Opportunity(
         id=domain_item.id,
         organization_id=domain_item.organization_id,
         route_candidate_id=domain_item.route_candidate_id,
@@ -432,9 +449,55 @@ def create_opportunity(
         created_at=domain_item.created_at,
         updated_at=domain_item.updated_at,
     )
+
+
+@router.post("/v1/opportunities", status_code=201)
+def create_opportunity(
+    body: OpportunityInput,
+    request: Request,
+    response: Response,
+    session: Annotated[Session, Depends(_session_dependency())],
+    principal: Annotated[Any, Depends(_scope_dependency("opportunities:write"))],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    digest = _body_hash(body.model_dump(mode="json"))
+    prior = _idempotency(session, principal.organization_id, idempotency_key, digest, request)
+    _check_reuse(prior, digest, request)
+    if prior:
+        return _replay(session, response, request, prior, principal.organization_id)
+
+    source, demand, economic_model, candidate = _validate_source(
+        session, request, principal, body
+    )
+    if _fingerprint(candidate) != body.candidate_set_fingerprint:
+        _fail(
+            request,
+            409,
+            "CANDIDATE_SET_TAMPERED",
+            "DOMAIN_CONFLICT",
+            "Route provenance does not match its declared candidate-set fingerprint.",
+        )
+
+    now = datetime.now(UTC)
+    try:
+        domain_item = _build_domain_item(
+            body, principal, source, demand, economic_model, candidate, now
+        )
+    except DomainError as exc:
+        _fail(request, 422, exc.code, "VALIDATION_FAILURE", str(exc))
+
+    item = _persist_item(domain_item)
     session.add(item)
     _remember(session, principal.organization_id, idempotency_key, digest, item.id)
-    _event(session, request, principal.organization_id, principal.actor_id, item, idempotency_key, "opportunity.created")
+    _event(
+        session,
+        request,
+        principal.organization_id,
+        principal.actor_id,
+        item,
+        idempotency_key,
+        "opportunity.created",
+    )
     try:
         session.commit()
     except IntegrityError:
@@ -443,10 +506,22 @@ def create_opportunity(
         _check_reuse(prior, digest, request)
         if prior:
             return _replay(session, response, request, prior, principal.organization_id)
-        _fail(request, 409, "CONFLICT", "DOMAIN_CONFLICT", "Opportunity creation conflicted.")
+        _fail(
+            request,
+            409,
+            "CONFLICT",
+            "DOMAIN_CONFLICT",
+            "Opportunity creation conflicted.",
+        )
     except SQLAlchemyError:
         session.rollback()
-        _fail(request, 503, "DATABASE_UNAVAILABLE", "DATABASE_FAILURE", "Database operation failed.")
+        _fail(
+            request,
+            503,
+            "DATABASE_UNAVAILABLE",
+            "DATABASE_FAILURE",
+            "Database operation failed.",
+        )
     response.headers["ETag"] = f'"version-{item.version}"'
     return _envelope(request, _data(item))
 
@@ -465,7 +540,13 @@ def list_opportunities(
         statement = statement.where(Opportunity.id > cursor)
     if status is not None:
         if status not in {item.value for item in OpportunityStatus}:
-            _fail(request, 422, "INVALID_STATUS", "VALIDATION_FAILURE", "Unknown Opportunity status.")
+            _fail(
+                request,
+                422,
+                "INVALID_STATUS",
+                "VALIDATION_FAILURE",
+                "Unknown Opportunity status.",
+            )
         statement = statement.where(Opportunity.status == status)
     rows = session.scalars(statement.order_by(Opportunity.id).limit(limit + 1)).all()
     has_more = len(rows) > limit
@@ -502,8 +583,17 @@ def transition_opportunity(
     if item is None:
         _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Opportunity not found.")
     if if_match != f'"version-{item.version}"':
-        _fail(request, 409, "STALE_VERSION", "CONCURRENCY_FAILURE", "If-Match does not match current version.")
-    digest = _body_hash(body.model_dump(mode="json") | {"opportunity_id": opportunity_id, "if_match": if_match})
+        _fail(
+            request,
+            409,
+            "STALE_VERSION",
+            "CONCURRENCY_FAILURE",
+            "If-Match does not match current version.",
+        )
+    digest = _body_hash(
+        body.model_dump(mode="json")
+        | {"opportunity_id": opportunity_id, "if_match": if_match}
+    )
     prior = _idempotency(session, principal.organization_id, idempotency_key, digest, request)
     _check_reuse(prior, digest, request)
     if prior:
@@ -525,7 +615,11 @@ def transition_opportunity(
             economic_model_version=item.economic_model_version,
             commercial_perspective=item.commercial_perspective,
             currency=item.currency,
-            quantity=Quantity(item.quantity_value, item.quantity_unit, item.unit_registry_version),
+            quantity=Quantity(
+                item.quantity_value,
+                item.quantity_unit,
+                item.unit_registry_version,
+            ),
             valid_from=item.valid_from,
             valid_until=item.valid_until,
             status=OpportunityStatus(item.status),
@@ -543,11 +637,25 @@ def transition_opportunity(
     item.version = transitioned.version
     item.updated_at = transitioned.updated_at
     _remember(session, principal.organization_id, idempotency_key, digest, item.id)
-    _event(session, request, principal.organization_id, principal.actor_id, item, idempotency_key, "opportunity.updated")
+    _event(
+        session,
+        request,
+        principal.organization_id,
+        principal.actor_id,
+        item,
+        idempotency_key,
+        "opportunity.updated",
+    )
     try:
         session.commit()
     except SQLAlchemyError:
         session.rollback()
-        _fail(request, 503, "DATABASE_UNAVAILABLE", "DATABASE_FAILURE", "Database operation failed.")
+        _fail(
+            request,
+            503,
+            "DATABASE_UNAVAILABLE",
+            "DATABASE_FAILURE",
+            "Database operation failed.",
+        )
     response.headers["ETag"] = f'"version-{item.version}"'
     return _envelope(request, _data(item))
