@@ -169,7 +169,7 @@ def test_cross_tenant_model_is_not_readable():
                 id="key_org_b",
                 organization_id="org_b",
                 actor_id="act_org_b",
-                secret_hash=sha256("other-secret".encode()).hexdigest(),
+                secret_hash=sha256(b"other-secret").hexdigest(),
                 scopes=["economic_models:read"],
                 revoked=False,
                 created_at=NOW,
