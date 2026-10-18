@@ -141,7 +141,11 @@ def evaluate_logistics_leg(
         )
     if source_quantity.value <= 0:
         rejections.append(
-            _reject("INSUFFICIENT_QUANTITY", source_location_id, "Zero quantity is not routing supply.")
+            _reject(
+                "INSUFFICIENT_QUANTITY",
+                source_location_id,
+                "Zero quantity is not routing supply.",
+            )
         )
     if max_distance is not None and distance > max_distance:
         rejections.append(
