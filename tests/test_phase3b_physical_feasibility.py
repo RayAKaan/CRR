@@ -1,9 +1,11 @@
+# isort: skip_file
+
 from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
 
-from crr.domain import (  # noqa: I001
+from crr.domain import (
     Capability,
     CapabilityStatus,
     Demand,
