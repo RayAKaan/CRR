@@ -11,7 +11,7 @@ from sqlalchemy.pool import StaticPool
 
 from crr.api import create_app
 from crr.domain import DomainError, Quantity, Transformation, TransformationStatus
-from crr.models import APIKey, Actor, Base, Organization, OutboxEvent
+from crr.models import Actor, APIKey, Base, Organization, OutboxEvent
 
 
 NOW = datetime.now(UTC)
