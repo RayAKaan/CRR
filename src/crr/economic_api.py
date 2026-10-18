@@ -15,12 +15,12 @@ from sqlalchemy.orm import Session
 from crr.domain.economics import (
     EconomicComponent,
     EconomicComponentKind,
-    EconomicModel as DomainEconomicModel,
     EconomicModelStatus,
     EconomicPerspective,
     Money,
     RoundingPolicy,
 )
+from crr.domain.economics import EconomicModel as DomainEconomicModel
 from crr.domain.errors import DomainError
 from crr.economic_model import EconomicModel
 from crr.economic_schemas import EconomicModelInput
