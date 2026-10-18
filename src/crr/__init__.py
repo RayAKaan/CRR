@@ -14,4 +14,10 @@ _capability_router.include_router(_routing_router)
 _capability_router.include_router(_economic_router)
 _capability_router.include_router(_opportunity_router)
 
-del _capability_router, _economic_router, _opportunity_router, _routing_router, _transformation_router
+del (
+    _capability_router,
+    _economic_router,
+    _opportunity_router,
+    _routing_router,
+    _transformation_router,
+)
