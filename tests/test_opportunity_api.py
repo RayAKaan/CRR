@@ -260,8 +260,7 @@ def test_opportunity_lifecycle_uses_etag_and_rejects_illegal_transition():
     transitioned = client.patch(
         "/v1/opportunities/opp_org_a",
         json={"status": "CLOSED"},
-        headers=auth(token)
-        | {"Idempotency-Key": "opp-close", "If-Match": '"version-1"'},
+        headers=auth(token) | {"Idempotency-Key": "opp-close", "If-Match": '"version-1"'},
     )
     assert transitioned.status_code == 200
     assert transitioned.headers["etag"] == '"version-2"'
@@ -269,8 +268,7 @@ def test_opportunity_lifecycle_uses_etag_and_rejects_illegal_transition():
     illegal = client.patch(
         "/v1/opportunities/opp_org_a",
         json={"status": "OPEN"},
-        headers=auth(token)
-        | {"Idempotency-Key": "opp-reopen", "If-Match": '"version-2"'},
+        headers=auth(token) | {"Idempotency-Key": "opp-reopen", "If-Match": '"version-2"'},
     )
     assert illegal.status_code == 409
 
@@ -318,7 +316,4 @@ def test_cross_tenant_opportunity_is_hidden():
     assert response.status_code == 404
 
     with factory() as session:
-        assert (
-            session.scalar(select(Opportunity).where(Opportunity.id == "opp_org_a"))
-            is not None
-        )
+        assert session.scalar(select(Opportunity).where(Opportunity.id == "opp_org_a")) is not None
