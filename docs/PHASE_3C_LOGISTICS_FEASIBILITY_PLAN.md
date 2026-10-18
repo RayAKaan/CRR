@@ -1,8 +1,9 @@
 # CRR Phase 3C — Logistics & Geographic Feasibility Plan
 
-**Status:** Planned for implementation
+**Status:** Complete
 **Specification target:** CRR 0.1.1 with normative clarification 0.1.2
 **Base:** Phase 3B physical-feasibility routing merged to `main`
+**Merged implementation:** PR #13
 
 ## 1. Objective
 
@@ -94,7 +95,9 @@ Tests must exercise real deterministic logic and must not mock away constraints 
 
 ## 6. Documentation synchronization
 
-After behavior is proven, synchronize `CRR_DECISION_AND_ROUTING_SPEC.md`, `CRR_API_CONTRACT.md` where applicable, `CRR_CONFORMANCE_MATRIX.md`, `CRR_DATA_FLOW_ARCHITECTURE.md`, and `CRR_SPECIFICATION_INDEX.md`. Documentation must state exactly what Phase 3C implements and must not imply economics, optimization, reservations, commercial conversion, execution, shipment proof, evidence, or verification are complete.
+The Phase 3C implementation is documented in the phase plan, the conformance matrix, and the specification index. The existing normative routing specification already defines logistics as a hard-feasibility layer and the API contract has no Phase 3C endpoint requiring a contract change. The implementation does not introduce a persistence model or migration, so migration/schema semantics remain unchanged.
+
+Documentation states exactly what Phase 3C implements and does not imply economics, optimization, reservations, commercial conversion, execution, shipment proof, evidence, or verification are complete.
 
 ## 7. Definition of done
 
@@ -133,3 +136,11 @@ After behavior is proven, synchronize `CRR_DECISION_AND_ROUTING_SPEC.md`, `CRR_A
 8. Open PR.
 9. Fix every CI failure until every required GitHub job is green.
 10. Only then declare Phase 3C complete.
+
+## 10. Closure evidence
+
+- PR #13 merged successfully at merge commit `8d936ed98518dd3e2192a6185467633ad936b12e`.
+- Final pre-merge CI run: `39135176826`.
+- Test job: Ruff, format, mypy, and pytest all passed.
+- PostgreSQL job: migration upgrade, downgrade, rebuild, SQLAlchemy alignment, and PostgreSQL conformance all passed.
+- An earlier CI run failed only on one Ruff line-length violation; it was corrected without weakening tests or requirements, and the corrected run was fully green.
