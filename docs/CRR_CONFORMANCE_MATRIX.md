@@ -357,3 +357,27 @@ The decisive question is:
 > **Can an independent reviewer trace a physical resource from authoritative state through routing, constraints, economics, commercial commitment, actual execution, evidence, and verification without any derived layer, AI output, stale write, or unverified claim silently becoming physical truth?**
 
 If not, the implementation is not semantically conforming.
+
+---
+
+# 11. Phase 3C executable conformance
+
+Phase 3C adds deterministic logistics feasibility to the routing implementation boundary without creating execution or reservation semantics.
+
+The executable evidence is:
+
+- explicit immutable transport-mode and logistics evaluation contracts;
+- authoritative source/destination endpoint checks;
+- cross-tenant rejection at the logistics boundary;
+- exact-decimal distance validation;
+- versioned unit-registry capacity conversion;
+- transport payload capacity rejection;
+- maximum-distance rejection;
+- deterministic travel arrival calculation;
+- destination timing-window rejection;
+- zero-quantity supply rejection;
+- machine-readable `LOCATION_INFEASIBLE`, `CAPACITY_INSUFFICIENT`, `TIME_WINDOW_CONFLICT`, `UNIT_INCOMPATIBLE`, and `INSUFFICIENT_QUANTITY` outcomes;
+- deterministic repeated evaluation tests;
+- full repository CI including PostgreSQL migration/model/conformance checks.
+
+Phase 3C does **not** claim economics, optimization, reservations, commercial conversion, physical shipment execution, evidence verification, or autonomous action.
