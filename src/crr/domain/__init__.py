@@ -16,6 +16,7 @@ from crr.domain.routing import (
     RouteLeg,
     RouteStatus,
     evaluate_direct_route,
+    evaluate_transformation_route,
 )
 from crr.domain.transformation import (
     Transformation,
@@ -45,6 +46,7 @@ __all__ = [
     "UnitDefinition",
     "UnitRegistry",
     "evaluate_direct_route",
+    "evaluate_transformation_route",
     "transition_state",
     "validate_capability_tenant",
     "validate_demand_tenant",
