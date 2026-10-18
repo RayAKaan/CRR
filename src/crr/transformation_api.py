@@ -465,10 +465,19 @@ def patch_transformation(
     status = TransformationStatus(merged["status"])
     base = _domain(item)
     now = datetime.now(UTC)
-    if status != base.status:
-        new_version = base.transition(status, now).version
-    else:
-        new_version = item.version + 1
+    try:
+        if status != base.status:
+            new_version = base.transition(status, now).version
+        else:
+            new_version = item.version + 1
+    except DomainError as exc:
+        _fail(
+            request,
+            409,
+            "INVALID_LIFECYCLE_TRANSITION",
+            "DOMAIN_CONFLICT",
+            str(exc),
+        )
 
     candidate = DomainTransformation(
         id=item.id,
