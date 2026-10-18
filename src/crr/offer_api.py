@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from decimal import Decimal
 from typing import Annotated, Any
 from uuid import uuid4
 
@@ -17,9 +16,9 @@ from crr.domain.offer import Offer as DomainOffer
 from crr.domain.offer import OfferStatus
 from crr.domain.quantity import Quantity
 from crr.models import Actor, IdempotencyRecord, OutboxEvent
-from crr.opportunity_model import Opportunity
 from crr.offer_model import Offer
 from crr.offer_schemas import OfferInput, OfferStatusInput
+from crr.opportunity_model import Opportunity
 
 router = APIRouter()
 
@@ -93,7 +92,13 @@ def _find(session: Session, offer_id: str, organization_id: str):
     )
 
 
-def _idempotency(session: Session, organization_id: str, key: str | None, digest: str, request: Request):
+def _idempotency(
+    session: Session,
+    organization_id: str,
+    key: str | None,
+    digest: str,
+    request: Request,
+):
     if not key or not key.strip() or len(key) > 255:
         _fail(
             request,
@@ -121,7 +126,13 @@ def _check_reuse(prior, digest: str, request: Request):
         )
 
 
-def _remember(session: Session, organization_id: str, key: str, digest: str, object_id: str):
+def _remember(
+    session: Session,
+    organization_id: str,
+    key: str,
+    digest: str,
+    object_id: str,
+):
     session.add(
         IdempotencyRecord(
             organization_id=organization_id,
@@ -165,7 +176,13 @@ def _event(
     )
 
 
-def _replay(session: Session, response: Response, request: Request, prior, organization_id: str):
+def _replay(
+    session: Session,
+    response: Response,
+    request: Request,
+    prior,
+    organization_id: str,
+):
     item = _find(session, prior.object_id, organization_id)
     if item is None:
         _fail(
@@ -212,7 +229,13 @@ def _validate_opportunity(
         )
     now = datetime.now(UTC)
     if now >= opportunity.valid_until:
-        _fail(request, 409, "OPPORTUNITY_EXPIRED", "DOMAIN_CONFLICT", "Opportunity has expired.")
+        _fail(
+            request,
+            409,
+            "OPPORTUNITY_EXPIRED",
+            "DOMAIN_CONFLICT",
+            "Opportunity has expired.",
+        )
     if body.valid_from < opportunity.valid_from or body.valid_until > opportunity.valid_until:
         _fail(
             request,
@@ -229,7 +252,10 @@ def _validate_opportunity(
             "VALIDATION_FAILURE",
             "Offer quantity cannot exceed the Opportunity quantity.",
         )
-    if body.quantity_unit != opportunity.quantity_unit or body.unit_registry_version != opportunity.unit_registry_version:
+    if (
+        body.quantity_unit != opportunity.quantity_unit
+        or body.unit_registry_version != opportunity.unit_registry_version
+    ):
         _fail(
             request,
             422,
@@ -248,7 +274,12 @@ def _validate_opportunity(
     return opportunity
 
 
-def _validate_participants(session: Session, request: Request, principal: Any, body: OfferInput) -> None:
+def _validate_participants(
+    session: Session,
+    request: Request,
+    principal: Any,
+    body: OfferInput,
+) -> None:
     actors = session.scalars(
         select(Actor).where(
             Actor.id.in_([body.proposer_actor_id, body.recipient_actor_id]),
@@ -274,7 +305,12 @@ def _validate_participants(session: Session, request: Request, principal: Any, b
         )
 
 
-def _build(body: OfferInput, principal: Any, opportunity: Opportunity, now: datetime) -> DomainOffer:
+def _build(
+    body: OfferInput,
+    principal: Any,
+    opportunity: Opportunity,
+    now: datetime,
+) -> DomainOffer:
     return DomainOffer(
         id=body.id or f"off_{uuid4().hex}",
         organization_id=principal.organization_id,
@@ -354,7 +390,13 @@ def create_offer(
         )
     registry = request.app.state.unit_registry
     try:
-        registry.validate(Quantity(body.quantity_value, body.quantity_unit, body.unit_registry_version))
+        registry.validate(
+            Quantity(
+                body.quantity_value,
+                body.quantity_unit,
+                body.unit_registry_version,
+            )
+        )
     except DomainError as exc:
         _fail(request, 422, "UNIT_VALIDATION_FAILED", "VALIDATION_FAILURE", str(exc))
     now = datetime.now(UTC)
@@ -364,7 +406,15 @@ def create_offer(
         _fail(request, 422, exc.code, "VALIDATION_FAILURE", str(exc))
     session.add(item)
     _remember(session, principal.organization_id, idempotency_key, digest, item.id)
-    _event(session, request, principal.organization_id, principal.actor_id, item, idempotency_key, "offer.created")
+    _event(
+        session,
+        request,
+        principal.organization_id,
+        principal.actor_id,
+        item,
+        idempotency_key,
+        "offer.created",
+    )
     try:
         session.commit()
     except IntegrityError:
@@ -418,19 +468,34 @@ def transition_offer(
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
-    digest = _body_hash(body.model_dump(mode="json") | {"offer_id": offer_id, "if_match": if_match})
+    digest = _body_hash(
+        body.model_dump(mode="json")
+        | {"offer_id": offer_id, "if_match": if_match}
+    )
     prior = _idempotency(session, principal.organization_id, idempotency_key, digest, request)
     _check_reuse(prior, digest, request)
     if prior:
         return _replay(session, response, request, prior, principal.organization_id)
     if not if_match:
-        _fail(request, 428, "IF_MATCH_REQUIRED", "CONCURRENCY_FAILURE", "If-Match is required.")
+        _fail(
+            request,
+            428,
+            "IF_MATCH_REQUIRED",
+            "CONCURRENCY_FAILURE",
+            "If-Match is required.",
+        )
     item = _find(session, offer_id, principal.organization_id)
     if item is None:
         _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Offer not found.")
     expected = f'"version-{item.version}"'
     if if_match != expected:
-        _fail(request, 409, "STALE_VERSION", "CONCURRENCY_FAILURE", "Offer version is stale.")
+        _fail(
+            request,
+            409,
+            "STALE_VERSION",
+            "CONCURRENCY_FAILURE",
+            "Offer version is stale.",
+        )
     try:
         domain = DomainOffer(
             id=item.id,
@@ -439,7 +504,11 @@ def transition_offer(
             opportunity_version=item.opportunity_version,
             proposer_actor_id=item.proposer_actor_id,
             recipient_actor_id=item.recipient_actor_id,
-            quantity=Quantity(item.quantity_value, item.quantity_unit, item.unit_registry_version),
+            quantity=Quantity(
+                item.quantity_value,
+                item.quantity_unit,
+                item.unit_registry_version,
+            ),
             price=item.price,
             currency=item.currency,
             delivery_terms=item.delivery_terms,
@@ -461,7 +530,15 @@ def transition_offer(
     item.version = domain.version
     item.updated_at = domain.updated_at
     _remember(session, principal.organization_id, idempotency_key, digest, item.id)
-    _event(session, request, principal.organization_id, principal.actor_id, item, idempotency_key, "offer.updated")
+    _event(
+        session,
+        request,
+        principal.organization_id,
+        principal.actor_id,
+        item,
+        idempotency_key,
+        "offer.updated",
+    )
     session.commit()
     response.headers["ETag"] = f'"version-{item.version}"'
     return _envelope(request, _data(item))
