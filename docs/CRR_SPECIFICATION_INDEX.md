@@ -510,3 +510,13 @@ A reviewer should be able to answer “yes” to all of the following before cal
 - Can a human trace a verified outcome back to the physical state, transaction, execution, and evidence that support it?
 
 If any answer is no, the implementation is not semantically conforming even if its JSON schema is valid.
+
+---
+
+# 19. Current executable routing boundary
+
+The currently implemented routing foundation progresses through deterministic candidate discovery, physical feasibility, and logistics feasibility before economics or optimization.
+
+Phase 3C specifically establishes transport planning semantics for authoritative locations: explicit transport mode, distance, duration, payload capacity, endpoint validation, exact-decimal unit conversion, timing-window validation, and machine-readable hard-constraint rejection. Logistics remains a plan and does not imply reservation, shipment execution, commercial commitment, or verification.
+
+The detailed implementation plans remain in the phase-specific documents, including `PHASE_3A_ROUTING_FOUNDATION_PLAN.md`, `PHASE_3B_PHYSICAL_FEASIBILITY_PLAN.md`, and `PHASE_3C_LOGISTICS_FEASIBILITY_PLAN.md`.
