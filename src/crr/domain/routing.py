@@ -250,10 +250,7 @@ def evaluate_transformation_route(
             )
         )
 
-    if not (
-        capability.operating_window_start <= start
-        and end <= capability.operating_window_end
-    ):
+    if not (capability.operating_window_start <= start and end <= capability.operating_window_end):
         rejections.append(
             _reject(
                 "TIME_WINDOW_CONFLICT",
