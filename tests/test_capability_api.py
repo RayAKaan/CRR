@@ -69,7 +69,7 @@ def headers(token: str, key: str | None = None) -> dict[str, str]:
 CAPABILITY = {
     "accepted_inputs": [{"state_type": "ALUMINUM_SCRAP", "quality": {"grade": "A"}}],
     "output_specifications": {"state_type": "ALUMINUM_BILLET", "quality": {"grade": "A"}},
-    "transformation_ids": ["trn_future"],
+    "transformation_ids": [],
     "capacity": "100.000",
     "unit": "t",
     "unit_registry_version": "CRR-UNITS-0.1",
@@ -265,6 +265,20 @@ def test_capability_validation_and_lifecycle_fail_closed() -> None:
         json=CAPABILITY | {"location_id": "loc_other"},
     )
     assert missing_location.status_code == 404
+
+    missing_transformation = client.post(
+        "/v1/capabilities",
+        headers=headers(token, "transformation-ref-cap"),
+        json=CAPABILITY | {"transformation_ids": ["trn_missing"]},
+    )
+    assert missing_transformation.status_code == 404
+
+    duplicate_transformation = client.post(
+        "/v1/capabilities",
+        headers=headers(token, "duplicate-transformation-cap"),
+        json=CAPABILITY | {"transformation_ids": ["trn_missing", "trn_missing"]},
+    )
+    assert duplicate_transformation.status_code == 422
 
     created = client.post(
         "/v1/capabilities",
