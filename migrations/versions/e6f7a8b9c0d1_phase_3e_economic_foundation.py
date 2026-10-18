@@ -7,8 +7,10 @@ Create Date: 2026-10-18
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
+
+from crr.models import AwareDateTime
 
 revision: str = "e6f7a8b9c0d1"
 down_revision: Union[str, Sequence[str], None] = "d5e6f7a8b9c0"
@@ -24,8 +26,8 @@ def upgrade() -> None:
         sa.Column("organization_id", sa.String(length=80), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False),
         sa.Column("currency", sa.String(length=3), nullable=False),
-        sa.Column("valid_from", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("valid_until", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("valid_from", AwareDateTime(), nullable=False),
+        sa.Column("valid_until", AwareDateTime(), nullable=True),
         sa.Column("calculation_version", sa.String(length=80), nullable=False),
         sa.Column("rounding_mode", sa.String(length=32), nullable=False),
         sa.Column("rounding_scale", sa.Integer(), nullable=False),
@@ -33,8 +35,8 @@ def upgrade() -> None:
         sa.Column("status", sa.String(length=32), nullable=False),
         sa.Column("created_by", sa.String(length=80), nullable=False),
         sa.Column("provenance", sa.JSON(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("created_at", AwareDateTime(), nullable=False),
+        sa.Column("updated_at", AwareDateTime(), nullable=False),
         sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"]),
         sa.ForeignKeyConstraint(["created_by"], ["actors.id"]),
         sa.PrimaryKeyConstraint("id"),
