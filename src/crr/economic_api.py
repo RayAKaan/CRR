@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Annotated, Any
 from uuid import uuid4
 
@@ -13,10 +14,10 @@ from sqlalchemy.orm import Session
 
 from crr.domain.economics import (
     EconomicComponent,
+    EconomicComponentKind,
     EconomicModel as DomainEconomicModel,
     EconomicModelStatus,
     EconomicPerspective,
-    EconomicComponentKind,
     Money,
     RoundingPolicy,
 )
@@ -70,7 +71,7 @@ def _domain(item: EconomicModel) -> DomainEconomicModel:
             perspective=EconomicPerspective(component["perspective"]),
             kind=EconomicComponentKind(component["kind"]),
             label=component["label"],
-            amount=Money(component["amount"], component["currency"]),
+            amount=Money(Decimal(component["amount"]), component["currency"]),
             source=component["source"],
         )
         for component in item.components
@@ -199,7 +200,11 @@ def _event(
             correlation_id=request.state.request_id,
             causation_id=None,
             idempotency_key=key,
-            payload={"economic_model_id": item.id, "version": item.version, "status": item.status},
+            payload={
+                "economic_model_id": item.id,
+                "version": item.version,
+                "status": item.status,
+            },
             provenance={"source_type": "CRR_API", "request_id": request.state.request_id},
             schema_version="0.1",
         )
@@ -228,14 +233,13 @@ def _replay(
 
 
 def _database_error(request: Request):
-    _fail(request, 503, "DATABASE_UNAVAILABLE", "DATABASE_FAILURE", "Database operation failed.")
-
-
-def _validate_domain(item: DomainEconomicModel, request: Request):
-    try:
-        item.validate_tenant(item.organization_id)
-    except DomainError as exc:
-        _fail(request, 422, exc.code, "VALIDATION_FAILURE", str(exc))
+    _fail(
+        request,
+        503,
+        "DATABASE_UNAVAILABLE",
+        "DATABASE_FAILURE",
+        "Database operation failed.",
+    )
 
 
 @router.get("/v1/economic-models")
@@ -350,7 +354,14 @@ def create_economic_model(
     )
     session.add(item)
     _remember(session, principal.organization_id, idempotency_key, digest, item.id)
-    _event(session, request, principal.organization_id, principal.actor_id, item, idempotency_key)
+    _event(
+        session,
+        request,
+        principal.organization_id,
+        principal.actor_id,
+        item,
+        idempotency_key,
+    )
     try:
         session.commit()
     except IntegrityError:
