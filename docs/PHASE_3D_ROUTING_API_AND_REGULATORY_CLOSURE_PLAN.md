@@ -145,7 +145,9 @@ Response shape is the repository's standard envelope with a deterministic list o
 
 ## 8. Documentation synchronization
 
-Synchronized the implementation evidence with the affected routing/API/conformance documentation and retained explicit boundaries around later economics, optimization, decisions, commercial conversion, execution, and verification.
+The implementation was audited against the existing normative API, routing, validation, conformance, data-flow, and specification-index documents. Those documents already define the endpoint, hard-constraint ordering, regulatory/safety semantics, tenant boundary, and computation-vs-execution separation implemented here; no conflicting normative text or new protocol semantics were required.
+
+The phase plan itself records the implementation and CI evidence. Later economics, optimization, decisions, commercial conversion, execution, and verification remain explicitly outside this increment.
 
 ## 9. Database boundary
 
@@ -190,7 +192,7 @@ PostgreSQL CI was run against the canonical Phase 1/2 schema and passed migratio
 5. Implement the `routes:compute` API boundary. **Done.**
 6. Add comprehensive domain/API/security/failure/determinism tests. **Done.**
 7. Run local static/test/migration checks where available. **Covered by CI verification.**
-8. Synchronize documentation after behavior was proven. **Done.**
+8. Audit/synchronize documentation after behavior was proven. **Done.**
 9. Open PR. **PR #15.**
 10. Diagnose and fix every CI failure until every required GitHub job is green. **Done.**
 11. Declare Phase 3D complete. **Done.**
@@ -198,8 +200,9 @@ PostgreSQL CI was run against the canonical Phase 1/2 schema and passed migratio
 ## 13. Closure evidence
 
 - PR: #15
-- Final implementation commit: `9cfa7c9547549d5482ab9a1488cbb8da18858582`
-- Final GitHub Actions CI run: `39140575051`
+- Final implementation commit before documentation closure: `9cfa7c9547549d5482ab9a1488cbb8da18858582`
+- Final fully green GitHub Actions CI run before documentation-only closure edits: `39140575051`
 - Test job: Ruff check **PASS**, Ruff format **PASS**, mypy **PASS**, pytest **PASS**.
 - PostgreSQL job: migration upgrade **PASS**, downgrade **PASS**, rebuild **PASS**, SQLAlchemy alignment **PASS**, PostgreSQL conformance **PASS**.
 - Earlier failures were diagnosed from CI logs and corrected without weakening requirements or tests.
+- The final documentation closure commit changes only the Phase 3D plan text; runtime behavior is unchanged.
