@@ -21,6 +21,7 @@ def registry() -> UnitRegistry:
         units={
             "kg": UnitDefinition("kg", "MASS", Decimal("1")),
             "t": UnitDefinition("t", "MASS", Decimal("1000")),
+            "l": UnitDefinition("l", "VOLUME", Decimal("1")),
         },
     )
 
@@ -95,21 +96,10 @@ def test_transport_capacity_is_enforced(registry):
 
 
 def test_unit_incompatibility_is_reported(registry):
-    incompatible = UnitRegistry(
-        version=registry.version,
-        units={"l": UnitDefinition("l", "VOLUME", Decimal("1"))},
-    )
     result = evaluate(
-        incompatible,
-        source_quantity=Quantity(Decimal("10"), "l", incompatible.version),
-        transport_capacity=Quantity(Decimal("100"), "l", incompatible.version),
+        registry,
+        transport_capacity=Quantity(Decimal("100"), "l", registry.version),
     )
-    assert result.feasible is True
-
-
-def test_unknown_target_unit_is_rejected(registry):
-    capacity = Quantity(Decimal("12"), "kg", registry.version)
-    result = evaluate(registry, transport_capacity=capacity)
     assert result.feasible is False
     assert any(item.code == "UNIT_INCOMPATIBLE" for item in result.rejections)
 
