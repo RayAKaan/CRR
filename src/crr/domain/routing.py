@@ -271,7 +271,9 @@ def evaluate_transformation_route(
         )
 
     try:
-        source_capacity = _convert_quantity(source.quantity, capability.capacity.unit, unit_registry)
+        source_capacity = _convert_quantity(
+            source.quantity, capability.capacity.unit, unit_registry
+        )
         source_transformation_capacity = _convert_quantity(
             source.quantity, transformation.capacity.unit, unit_registry
         )
