@@ -209,9 +209,7 @@ def evaluate_economic_model(
     values: dict[EconomicPerspective, Decimal] = {
         item: Decimal("0") for item in EconomicPerspective
     }
-    costs: dict[EconomicPerspective, Decimal] = {
-        item: Decimal("0") for item in EconomicPerspective
-    }
+    costs: dict[EconomicPerspective, Decimal] = {item: Decimal("0") for item in EconomicPerspective}
     for component in model.components:
         if component.amount.currency != model.currency:
             raise DomainError("Economic component currency does not match model currency.")
