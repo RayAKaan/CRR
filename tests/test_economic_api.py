@@ -90,9 +90,7 @@ def payload(model_id: str = "eco_1") -> dict:
 
 
 def test_create_and_get_economic_model():
-    client, token, _ = make_client(
-        scopes=["economic_models:write", "economic_models:read"]
-    )
+    client, token, _ = make_client(scopes=["economic_models:write", "economic_models:read"])
     headers = auth(token) | {"Idempotency-Key": "eco-create-1"}
 
     created = client.post("/v1/economic-models", json=payload(), headers=headers)
