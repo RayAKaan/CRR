@@ -19,6 +19,7 @@ from crr.domain.capability import CapabilityStatus
 from crr.domain.errors import DomainError
 from crr.domain.quantity import Quantity
 from crr.models import IdempotencyRecord, OutboxEvent
+from crr.transformation_model import Transformation
 
 router = APIRouter()
 
@@ -248,6 +249,40 @@ def _location(request: Request, session: Session, location_id: str, organization
     return location
 
 
+def _transformation_refs(
+    request: Request,
+    session: Session,
+    transformation_ids: list[str] | tuple[str, ...],
+    organization_id: str,
+) -> None:
+    if len(set(transformation_ids)) != len(transformation_ids):
+        _fail(
+            request,
+            422,
+            "INVALID_REFERENCE",
+            "VALIDATION_FAILURE",
+            "Transformation references must be unique.",
+        )
+    if not transformation_ids:
+        return
+    found = set(
+        session.scalars(
+            select(Transformation.id).where(
+                Transformation.organization_id == organization_id,
+                Transformation.id.in_(transformation_ids),
+            )
+        ).all()
+    )
+    if found != set(transformation_ids):
+        _fail(
+            request,
+            404,
+            "NOT_FOUND",
+            "NOT_FOUND",
+            "One or more Transformation references were not found.",
+        )
+
+
 def _replay(
     session: Session,
     response: Response,
@@ -321,6 +356,7 @@ def create_capability(
     if prior:
         return _replay(session, response, request, prior, principal.organization_id)
     location = _location(request, session, body.location_id, principal.organization_id)
+    _transformation_refs(request, session, body.transformation_ids, principal.organization_id)
     capacity = _quantity(body.capacity, body.unit, body.unit_registry_version)
     minimum_batch = (
         _quantity(body.minimum_batch, body.unit, body.unit_registry_version)
@@ -438,6 +474,12 @@ def patch_capability(
     _validate_units(request, capacity, minimum_batch)
     location_id = body.location_id or current.location_id
     location = _location(request, session, location_id, principal.organization_id)
+    transformation_ids = (
+        body.transformation_ids
+        if body.transformation_ids is not None
+        else current.transformation_ids
+    )
+    _transformation_refs(request, session, transformation_ids, principal.organization_id)
     start = (body.operating_window_start or current.operating_window_start).astimezone(UTC)
     end = (body.operating_window_end or current.operating_window_end).astimezone(UTC)
     status = CapabilityStatus(body.status) if body.status else current.status
@@ -451,7 +493,7 @@ def patch_capability(
             organization_id=current.organization_id,
             accepted_inputs=tuple(body.accepted_inputs or current.accepted_inputs),
             output_specifications=body.output_specifications or current.output_specifications,
-            transformation_ids=tuple(body.transformation_ids or current.transformation_ids),
+            transformation_ids=tuple(transformation_ids),
             capacity=capacity,
             minimum_batch=minimum_batch,
             location_id=location.id,
@@ -472,7 +514,7 @@ def patch_capability(
     values: dict[str, Any] = {
         "accepted_inputs": body.accepted_inputs or item.accepted_inputs,
         "output_specifications": body.output_specifications or item.output_specifications,
-        "transformation_ids": body.transformation_ids or item.transformation_ids,
+        "transformation_ids": list(transformation_ids),
         "capacity_value": capacity.value,
         "minimum_batch_value": minimum_batch.value if minimum_batch is not None else None,
         "location_id": location.id,
