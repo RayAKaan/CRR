@@ -3,7 +3,6 @@ from decimal import Decimal
 
 import pytest
 
-from crr.domain.errors import TenantBoundaryError
 from crr.domain import (
     Capability,
     CapabilityStatus,
@@ -13,10 +12,10 @@ from crr.domain import (
     ResourceState,
     Transformation,
     TransformationStatus,
-    UnitDefinition,
     UnitRegistry,
     evaluate_transformation_route,
 )
+from crr.domain.errors import TenantBoundaryError
 
 
 START = datetime(2026, 10, 18, 10, 0, tzinfo=UTC)
