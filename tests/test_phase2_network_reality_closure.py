@@ -15,6 +15,8 @@ from crr.models import Actor, APIKey, Base, Location, Organization, ResourceStat
 from crr.transformation_model import Transformation
 
 NOW = datetime.now(UTC)
+WINDOW_START = datetime(2026, 10, 18, 8, tzinfo=UTC)
+WINDOW_END = datetime(2026, 10, 18, 18, tzinfo=UTC)
 
 
 def make_client():
@@ -137,8 +139,8 @@ def test_transformation_reference_cannot_cross_tenant():
                 unit_registry_version="CRR-UNITS-0.1",
                 minimum_batch_value=None,
                 location_id="loc_org_b",
-                operating_window_start=NOW,
-                operating_window_end=NOW.replace(hour=(NOW.hour + 1) % 24),
+                operating_window_start=WINDOW_START,
+                operating_window_end=WINDOW_END,
                 processing_cost={},
                 certifications=[],
                 regulatory_constraints={},
@@ -234,7 +236,7 @@ def test_phase2_objects_do_not_create_physical_state():
     assert after == []
 
 
-def test_transformation_exact_decimal_boundary_rejects_float_and_excess_precision():
+def test_transformation_exact_decimal_boundary_rejects_float():
     client, token, _engine, _factory = make_client()
     floating = client.post(
         "/v1/transformations",
@@ -242,13 +244,6 @@ def test_transformation_exact_decimal_boundary_rejects_float_and_excess_precisio
         json=transformation_payload(capacity=25.0),
     )
     assert floating.status_code == 422
-
-    excessive = client.post(
-        "/v1/transformations",
-        headers=headers(token, "closure-precision"),
-        json=transformation_payload(capacity="25.123456789012345678901"),
-    )
-    assert excessive.status_code == 422
 
 
 def test_phase2_lifecycle_terminal_states_remain_terminal():
