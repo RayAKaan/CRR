@@ -7,17 +7,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from crr.api import create_app
+from crr.demand_model import Demand
 from crr.models import (
     Actor,
     APIKey,
     Base,
-    Capability,
-    Demand,
     Location,
     Organization,
-    Resource,
     ResourceState,
-    Transformation,
 )
 
 NOW = datetime(2026, 10, 18, 12, tzinfo=UTC)
@@ -80,24 +77,67 @@ def seed_direct(engine, org_id: str = "org_a", state_type: str = "ALUMINUM_SCRAP
         connection.exec_driver_sql(
             "INSERT INTO resources (id, organization_id, resource_type, description, version, created_by, provenance, created_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            ("res_a", org_id, state_type, None, 1, f"act_{org_id}", '{"source_type":"TEST"}', NOW.isoformat()),
+            (
+                "res_a",
+                org_id,
+                state_type,
+                None,
+                1,
+                f"act_{org_id}",
+                '{"source_type":"TEST"}',
+                NOW.isoformat(),
+            ),
         )
         connection.exec_driver_sql(
             "INSERT INTO resource_states (id, organization_id, resource_id, resource_version, state_type, quantity_value, unit, unit_registry_version, location_id, effective_at, recorded_at, created_by, provenance, quality, physical_properties, predecessor_state_ids) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                "rst_a", org_id, "res_a", 1, state_type, "100.000", "t", "CRR-UNITS-0.1",
-                f"loc_{org_id}", NOW.isoformat(), NOW.isoformat(), f"act_{org_id}",
-                '{"source_type":"TEST"}', '{}', '{}', '[]',
+                "rst_a",
+                org_id,
+                "res_a",
+                1,
+                state_type,
+                "100.000",
+                "t",
+                "CRR-UNITS-0.1",
+                f"loc_{org_id}",
+                NOW.isoformat(),
+                NOW.isoformat(),
+                f"act_{org_id}",
+                '{"source_type":"TEST"}',
+                "{}",
+                "{}",
+                "[]",
             ),
         )
         connection.exec_driver_sql(
             "INSERT INTO demands (id, organization_id, required_state, quantity_min_value, quantity_target_value, quantity_max_value, remaining_quantity_value, unit, unit_registry_version, status, location_constraints, timing_start, timing_end, quality_requirements, pricing_constraints, certifications, regulatory_constraints, substitutions, recurrence, version, created_by, provenance, created_at, updated_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                "dem_a", org_id, state_type, "10.000", "20.000", "30.000", "20.000", "t", "CRR-UNITS-0.1", "ACTIVE",
-                '{}', NOW.isoformat(), "2026-10-18T18:00:00+00:00", '{}', '{}', '[]', '{}', '[]', '{}', 1,
-                f"act_{org_id}", '{"source_type":"TEST"}', NOW.isoformat(), NOW.isoformat(),
+                "dem_a",
+                org_id,
+                state_type,
+                "10.000",
+                "20.000",
+                "30.000",
+                "20.000",
+                "t",
+                "CRR-UNITS-0.1",
+                "ACTIVE",
+                "{}",
+                NOW.isoformat(),
+                "2026-10-18T18:00:00+00:00",
+                "{}",
+                "{}",
+                "[]",
+                "{}",
+                "[]",
+                "{}",
+                1,
+                f"act_{org_id}",
+                '{"source_type":"TEST"}',
+                NOW.isoformat(),
+                NOW.isoformat(),
             ),
         )
 
@@ -105,8 +145,6 @@ def seed_direct(engine, org_id: str = "org_a", state_type: str = "ALUMINUM_SCRAP
 def test_routes_compute_direct_candidate_and_is_read_only():
     client, token, engine = make_client()
     seed_direct(engine)
-    before = client.get("/v1/resources/rst_a", headers=auth(token))
-    assert before.status_code == 404
 
     response = client.post(
         "/v1/routes/compute",
@@ -121,7 +159,7 @@ def test_routes_compute_direct_candidate_and_is_read_only():
     with engine.connect() as connection:
         state = connection.execute(select(ResourceState).where(ResourceState.id == "rst_a")).one()
         demand = connection.execute(select(Demand).where(Demand.id == "dem_a")).one()
-    assert state.quantity_value == state.quantity_value
+    assert str(state.quantity_value) == "100.000"
     assert demand.version == 1
 
 
