@@ -22,6 +22,7 @@ from crr.domain.optimization import (
     CandidateSet,
     OptimizationObjective,
     OptimizationPolicy,
+    OptimizationResult,
     optimize_candidate_set,
 )
 from crr.domain.quantity import Quantity
@@ -248,7 +249,7 @@ def _location_rejected_candidate(
     )
 
 
-def _optimization_data(result) -> dict[str, Any]:
+def _optimization_data(result: OptimizationResult) -> dict[str, Any]:
     return {
         "candidate_set_fingerprint": result.candidate_set_fingerprint,
         "policy": {
@@ -381,6 +382,7 @@ def compute_routes(
     }
 
     if body.optimization is not None:
+        optimization_result: OptimizationResult | None = None
         try:
             objective = OptimizationObjective(body.optimization.objective)
             policy = OptimizationPolicy(
@@ -412,15 +414,22 @@ def compute_routes(
                             )
                         duration += Decimal(str(transformation_row.duration_seconds))
                 metrics_by_candidate[candidate.id] = {"duration_seconds": duration}
-
-            optimization_result = optimize_candidate_set(
-                candidate_set=candidate_set,
-                policy=policy,
-                metrics_by_candidate=metrics_by_candidate,
-                organization_id=principal.organization_id,
+        except ValueError as exc:
+            _fail(
+                request,
+                422,
+                "INVALID_OPTIMIZATION_OBJECTIVE",
+                "VALIDATION_FAILURE",
+                str(exc),
             )
         except DomainError as exc:
             _fail(request, 422, exc.code, "VALIDATION_FAILURE", str(exc))
+        optimization_result = optimize_candidate_set(
+            candidate_set=candidate_set,
+            policy=policy,
+            metrics_by_candidate=metrics_by_candidate,
+            organization_id=principal.organization_id,
+        )
         response_data["optimization"] = _optimization_data(optimization_result)
 
     return _envelope(request, response_data)
