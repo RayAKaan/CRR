@@ -105,7 +105,7 @@ def test_required_certification_and_control_are_enforced():
         transformation=transformation(
             regulatory_requirements={
                 "required_certifications": ["CERT-B"],
-                "required_controls": {"eligible": True},
+                "required_controls": {"eligible": False},
             }
         ),
     )
