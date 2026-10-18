@@ -89,9 +89,7 @@ def evaluate_direct_route(
         raise TenantBoundaryError("Routing source and target must share an organization.")
     rejections: list[Rejection] = []
     if not demand_active:
-        rejections.append(
-            _reject("DEMAND_EXPIRED", demand_id, "Demand is not ACTIVE.")
-        )
+        rejections.append(_reject("DEMAND_EXPIRED", demand_id, "Demand is not ACTIVE."))
     if source_quantity.value <= 0:
         rejections.append(
             _reject(
