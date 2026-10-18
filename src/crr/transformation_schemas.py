@@ -72,9 +72,7 @@ class TransformationPatch(BaseModel):
     regulatory_requirements: dict[str, Any] | None = None
     eligible_capability_ids: list[str] | None = None
     eligible_location_ids: list[str] | None = None
-    status: str | None = Field(
-        default=None, pattern="^(DRAFT|ACTIVE|SUSPENDED|EXPIRED|REVOKED)$"
-    )
+    status: str | None = Field(default=None, pattern="^(DRAFT|ACTIVE|SUSPENDED|EXPIRED|REVOKED)$")
     provenance: dict[str, Any] | None = None
 
     @field_validator("yield_min", "yield_target", "yield_max", "capacity", mode="before")
