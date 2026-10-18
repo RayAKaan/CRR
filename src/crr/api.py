@@ -489,13 +489,26 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
         limit: int = Query(default=50, ge=1, le=100),
         cursor: str | None = None,
     ):
-        rows, next_cursor, has_more = _page(
-            session, Location, principal.organization_id, limit, cursor
+        rows, next_cursor, has_more = _page(session, Location, principal.organization_id, limit, cursor)
+        return _collection(
+            request,
+            [
+                {
+                    "id": row.id,
+                    "organization_id": row.organization_id,
+                    "name": row.name,
+                    "address": row.address,
+                    "latitude": row.latitude,
+                    "longitude": row.longitude,
+                    "jurisdiction": row.jurisdiction,
+                    "provenance": row.provenance,
+                }
+                for row in rows
+            ],
+            next_cursor,
+            has_more,
+            limit,
         )
-        data = [
-            {"id": row.id, "organization_id": row.organization_id, "name": row.name} for row in rows
-        ]
-        return _collection(request, data, next_cursor, has_more, limit)
 
     @app.get("/v1/locations/{location_id}")
     def get_location(
@@ -504,225 +517,30 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
         session: Annotated[Session, Depends(db_session)],
         principal: Annotated[Principal, Depends(scope_required("locations:read"))],
     ):
-        item = session.scalar(
+        location = session.scalar(
             select(Location).where(
                 Location.id == location_id,
                 Location.organization_id == principal.organization_id,
             )
         )
-        if item is None:
+        if location is None:
             _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Location not found.")
         return _envelope(
             request,
             {
-                "id": item.id,
-                "organization_id": item.organization_id,
-                "name": item.name,
-                "address": item.address,
-                "latitude": item.latitude,
-                "longitude": item.longitude,
-                "jurisdiction": item.jurisdiction,
-                "provenance": item.provenance,
-                "created_at": item.created_at.isoformat(),
-            },
-        )
-
-    @app.post("/v1/locations", status_code=201)
-    def create_location(
-        body: LocationCreate,
-        request: Request,
-        response: Response,
-        session: Annotated[Session, Depends(db_session)],
-        principal: Annotated[Principal, Depends(scope_required("locations:write"))],
-        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-    ):
-        payload = body.model_dump(mode="json")
-        digest = _body_hash(payload)
-        prior = check_idempotency(session, principal, idempotency_key, digest, request, "Location")
-        if prior:
-            response.status_code = 200
-            item = session.scalar(
-                select(Location).where(
-                    Location.id == prior.object_id,
-                    Location.organization_id == principal.organization_id,
-                )
-            )
-            return _envelope(request, {"id": item.id, "name": item.name})
-        item = Location(
-            id=body.id or f"loc_{uuid4().hex}",
-            organization_id=principal.organization_id,
-            name=body.name,
-            address=body.address,
-            latitude=body.latitude,
-            longitude=body.longitude,
-            jurisdiction=body.jurisdiction,
-            provenance=body.provenance,
-            created_at=datetime.now(UTC),
-        )
-        session.add(item)
-        remember(session, principal, idempotency_key, digest, "Location", item.id)
-        emit(
-            session,
-            request,
-            principal,
-            "location.created",
-            "Location",
-            item.id,
-            1,
-            {"location_id": item.id},
-            idempotency_key,
-        )
-        try:
-            session.commit()
-        except IntegrityError:
-            session.rollback()
-            _fail(request, 409, "CONFLICT", "DOMAIN_CONFLICT", "Location creation conflicted.")
-        except SQLAlchemyError:
-            session.rollback()
-            _fail(
-                request,
-                503,
-                "DATABASE_UNAVAILABLE",
-                "DATABASE_FAILURE",
-                "Database operation failed.",
-            )
-        return _envelope(
-            request, {"id": item.id, "organization_id": item.organization_id, "name": item.name}
-        )
-
-    @app.get("/v1/resources")
-    def list_resources(
-        request: Request,
-        session: Annotated[Session, Depends(db_session)],
-        principal: Annotated[Principal, Depends(scope_required("resources:read"))],
-        limit: int = Query(default=50, ge=1, le=100),
-        cursor: str | None = None,
-    ):
-        rows, next_cursor, has_more = _page(
-            session, Resource, principal.organization_id, limit, cursor
-        )
-        data = [
-            {
-                "id": row.id,
-                "organization_id": row.organization_id,
-                "resource_type": row.resource_type,
-                "version": row.version,
-            }
-            for row in rows
-        ]
-        return _collection(request, data, next_cursor, has_more, limit)
-
-    @app.get("/v1/resources/{resource_id}")
-    def get_resource(
-        resource_id: str,
-        request: Request,
-        session: Annotated[Session, Depends(db_session)],
-        principal: Annotated[Principal, Depends(scope_required("resources:read"))],
-    ):
-        item = session.scalar(
-            select(Resource).where(
-                Resource.id == resource_id,
-                Resource.organization_id == principal.organization_id,
-            )
-        )
-        if item is None:
-            _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Resource not found.")
-        latest_state = session.scalar(
-            select(ResourceState)
-            .where(
-                ResourceState.resource_id == item.id,
-                ResourceState.organization_id == principal.organization_id,
-            )
-            .order_by(ResourceState.resource_version.desc())
-            .limit(1)
-        )
-        return _envelope(
-            request,
-            {
-                "id": item.id,
-                "organization_id": item.organization_id,
-                "resource_type": item.resource_type,
-                "description": item.description,
-                "version": item.version,
-                "current_state_id": latest_state.id if latest_state else None,
-                "provenance": item.provenance,
-                "created_at": item.created_at.isoformat(),
-            },
-        )
-
-    @app.post("/v1/resources", status_code=201)
-    def create_resource(
-        body: ResourceCreate,
-        request: Request,
-        response: Response,
-        session: Annotated[Session, Depends(db_session)],
-        principal: Annotated[Principal, Depends(scope_required("resources:write"))],
-        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-    ):
-        payload = body.model_dump(mode="json")
-        digest = _body_hash(payload)
-        prior = check_idempotency(session, principal, idempotency_key, digest, request, "Resource")
-        if prior:
-            response.status_code = 200
-            item = session.scalar(
-                select(Resource).where(
-                    Resource.id == prior.object_id,
-                    Resource.organization_id == principal.organization_id,
-                )
-            )
-            return _envelope(
-                request,
-                {"id": item.id, "resource_type": item.resource_type, "version": item.version},
-            )
-        item = Resource(
-            id=body.id or f"res_{uuid4().hex}",
-            organization_id=principal.organization_id,
-            resource_type=body.resource_type,
-            description=body.description,
-            version=0,
-            created_by=principal.actor_id,
-            provenance=body.provenance,
-            created_at=datetime.now(UTC),
-        )
-        session.add(item)
-        remember(session, principal, idempotency_key, digest, "Resource", item.id)
-        emit(
-            session,
-            request,
-            principal,
-            "resource.created",
-            "Resource",
-            item.id,
-            1,
-            {"resource_id": item.id},
-            idempotency_key,
-        )
-        try:
-            session.commit()
-        except IntegrityError:
-            session.rollback()
-            _fail(request, 409, "CONFLICT", "DOMAIN_CONFLICT", "Resource creation conflicted.")
-        except SQLAlchemyError:
-            session.rollback()
-            _fail(
-                request,
-                503,
-                "DATABASE_UNAVAILABLE",
-                "DATABASE_FAILURE",
-                "Database operation failed.",
-            )
-        return _envelope(
-            request,
-            {
-                "id": item.id,
-                "organization_id": item.organization_id,
-                "resource_type": item.resource_type,
-                "version": item.version,
+                "id": location.id,
+                "organization_id": location.organization_id,
+                "name": location.name,
+                "address": location.address,
+                "latitude": location.latitude,
+                "longitude": location.longitude,
+                "jurisdiction": location.jurisdiction,
+                "provenance": location.provenance,
             },
         )
 
     @app.post("/v1/resource-states", status_code=201)
-    def create_initial_state(
+    def create_resource_state(
         body: ResourceStateCreate,
         request: Request,
         response: Response,
@@ -732,17 +550,11 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
     ):
         payload = body.model_dump(mode="json")
         digest = _body_hash(payload)
-        prior = check_idempotency(
-            session, principal, idempotency_key, digest, request, "ResourceState"
-        )
+        prior = check_idempotency(session, principal, idempotency_key, digest, request, "ResourceState")
         if prior:
-            item = session.scalar(
-                select(ResourceState).where(
-                    ResourceState.id == prior.object_id,
-                    ResourceState.organization_id == principal.organization_id,
-                )
-            )
             response.status_code = 200
+            item = session.get(ResourceState, prior.object_id)
+            response.headers["ETag"] = f'"version-{item.resource_version}"'
             return _envelope(request, _state_data(item))
         resource = session.scalar(
             select(Resource).where(
@@ -758,53 +570,32 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
         )
         if resource is None or location is None:
             _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Resource or location not found.")
-        if resource.version != 0:
-            _fail(
-                request,
-                409,
-                "CONFLICT",
-                "DOMAIN_CONFLICT",
-                "An initial state already exists; use an explicit transition.",
-            )
-        quantity = Quantity(
-            body.quantity.value, body.quantity.unit, body.quantity.unit_registry_version
-        )
+        quantity = Quantity(body.quantity.value, body.quantity.unit, body.quantity.unit_registry_version)
         try:
             app.state.unit_registry.validate(quantity)
+            item = ResourceState(
+                id=body.id or f"rst_{uuid4().hex}",
+                organization_id=principal.organization_id,
+                resource_id=resource.id,
+                resource_version=1,
+                state_type=body.state_type,
+                quantity_value=str(quantity.value),
+                unit=quantity.unit,
+                unit_registry_version=quantity.unit_registry_version,
+                location_id=location.id,
+                effective_at=body.effective_at,
+                recorded_at=datetime.now(UTC),
+                created_by=principal.actor_id,
+                provenance=body.provenance,
+                quality=body.quality,
+                physical_properties=body.physical_properties,
+                predecessor_state_ids=[],
+            )
         except DomainError as exc:
             _fail(request, 422, exc.code, "VALIDATION_FAILURE", str(exc))
-        item = ResourceState(
-            id=body.id or f"rst_{uuid4().hex}",
-            organization_id=principal.organization_id,
-            resource_id=resource.id,
-            resource_version=1,
-            state_type=body.state_type,
-            quantity_value=str(quantity.value),
-            unit=quantity.unit,
-            unit_registry_version=quantity.unit_registry_version,
-            location_id=location.id,
-            effective_at=body.effective_at,
-            recorded_at=datetime.now(UTC),
-            created_by=principal.actor_id,
-            provenance=body.provenance,
-            quality=body.quality,
-            physical_properties=body.physical_properties,
-            predecessor_state_ids=[],
-        )
-        resource.version = 1
         session.add(item)
         remember(session, principal, idempotency_key, digest, "ResourceState", item.id)
-        emit(
-            session,
-            request,
-            principal,
-            "resource.state.created",
-            "ResourceState",
-            resource.id,
-            1,
-            {"resource_state_id": item.id, "resource_id": resource.id},
-            idempotency_key,
-        )
+        emit(session, request, principal, "resource.state.created", "ResourceState", resource.id, 1, {"resource_state_id": item.id, "resource_id": resource.id}, idempotency_key)
         try:
             session.commit()
         except IntegrityError:
@@ -812,13 +603,7 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
             _fail(request, 409, "CONFLICT", "DOMAIN_CONFLICT", "State creation conflicted.")
         except SQLAlchemyError:
             session.rollback()
-            _fail(
-                request,
-                503,
-                "DATABASE_UNAVAILABLE",
-                "DATABASE_FAILURE",
-                "Database operation failed.",
-            )
+            _fail(request, 503, "DATABASE_UNAVAILABLE", "DATABASE_FAILURE", "Database operation failed.")
         response.headers["ETag"] = '"version-1"'
         return _envelope(request, _state_data(item))
 
@@ -831,9 +616,7 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
         cursor: str | None = None,
         resource_id: str | None = None,
     ):
-        statement = select(ResourceState).where(
-            ResourceState.organization_id == principal.organization_id
-        )
+        statement = select(ResourceState).where(ResourceState.organization_id == principal.organization_id)
         if cursor:
             statement = statement.where(ResourceState.id > cursor)
         if resource_id:
@@ -842,13 +625,7 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
         has_more = len(rows) > limit
         rows = rows[:limit]
         next_cursor = rows[-1].id if has_more and rows else None
-        return _collection(
-            request,
-            [_state_data(row) for row in rows],
-            next_cursor,
-            has_more,
-            limit,
-        )
+        return _collection(request, [_state_data(row) for row in rows], next_cursor, has_more, limit)
 
     @app.get("/v1/resource-states/{state_id}")
     def get_resource_state(
@@ -857,12 +634,7 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
         session: Annotated[Session, Depends(db_session)],
         principal: Annotated[Principal, Depends(scope_required("resources:read"))],
     ):
-        item = session.scalar(
-            select(ResourceState).where(
-                ResourceState.id == state_id,
-                ResourceState.organization_id == principal.organization_id,
-            )
-        )
+        item = session.scalar(select(ResourceState).where(ResourceState.id == state_id, ResourceState.organization_id == principal.organization_id))
         if item is None:
             _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "ResourceState not found.")
         return _envelope(request, _state_data(item))
@@ -886,164 +658,39 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
         try:
             expected = int(token)
         except ValueError:
-            _fail(
-                request,
-                400,
-                "INVALID_PRECONDITION",
-                "CONCURRENCY",
-                "If-Match must contain a positive version.",
-            )
-        payload = body.model_dump(mode="json")
-        digest = _body_hash(
-            payload | {"predecessor_state_id": state_id, "expected_version": expected}
-        )
-        prior = check_idempotency(
-            session, principal, idempotency_key, digest, request, "StateTransition"
-        )
+            _fail(request, 400, "INVALID_PRECONDITION", "CONCURRENCY", "If-Match must contain a positive version.")
+        payload = body.model_dump(mode="json") | {"predecessor_state_id": state_id, "expected_version": expected}
+        digest = _body_hash(payload)
+        prior = check_idempotency(session, principal, idempotency_key, digest, request, "StateTransition")
         if prior:
-            if prior.object_type != "StateTransition":
-                _fail(
-                    request,
-                    409,
-                    "IDEMPOTENCY_CONFLICT",
-                    "DOMAIN_CONFLICT",
-                    "Idempotency key belongs to another operation.",
-                )
             item = session.get(ResourceState, prior.object_id)
             response.status_code = 200
             response.headers["ETag"] = f'"version-{item.resource_version}"'
             return _envelope(request, _state_data(item))
-        predecessor = session.scalar(
-            select(ResourceState).where(
-                ResourceState.id == state_id,
-                ResourceState.organization_id == principal.organization_id,
-            )
-        )
+        predecessor = session.scalar(select(ResourceState).where(ResourceState.id == state_id, ResourceState.organization_id == principal.organization_id))
         if predecessor is None:
             _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "ResourceState not found.")
-        resource = session.scalar(
-            select(Resource).where(
-                Resource.id == predecessor.resource_id,
-                Resource.organization_id == principal.organization_id,
-            )
-        )
-        location = session.scalar(
-            select(Location).where(
-                Location.id == body.location_id,
-                Location.organization_id == principal.organization_id,
-            )
-        )
+        resource = session.scalar(select(Resource).where(Resource.id == predecessor.resource_id, Resource.organization_id == principal.organization_id))
+        location = session.scalar(select(Location).where(Location.id == body.location_id, Location.organization_id == principal.organization_id))
         if resource is None or location is None:
             _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Resource or location not found.")
         if expected < 1 or expected != resource.version or expected != predecessor.resource_version:
             _fail(request, 412, "STALE_VERSION", "CONCURRENCY", "ResourceState version is stale.")
-        quantity = Quantity(
-            body.quantity.value, body.quantity.unit, body.quantity.unit_registry_version
-        )
+        quantity = Quantity(body.quantity.value, body.quantity.unit, body.quantity.unit_registry_version)
         try:
             app.state.unit_registry.validate(quantity)
-            old = DomainState(
-                id=predecessor.id,
-                resource_id=predecessor.resource_id,
-                organization_id=predecessor.organization_id,
-                version=predecessor.resource_version,
-                state_type=predecessor.state_type,
-                quantity=Quantity(
-                    predecessor.quantity_value, predecessor.unit, predecessor.unit_registry_version
-                ),
-                location_id=predecessor.location_id,
-                effective_at=predecessor.effective_at,
-                recorded_at=predecessor.recorded_at,
-                created_by=predecessor.created_by,
-                provenance=predecessor.provenance,
-                quality=predecessor.quality,
-                physical_properties=predecessor.physical_properties,
-                predecessor_state_ids=tuple(predecessor.predecessor_state_ids),
-            )
-            new, event = transition_state(
-                old,
-                expected_version=expected,
-                organization_id=principal.organization_id,
-                actor_id=principal.actor_id,
-                kind=TransitionKind(body.kind),
-                reason=body.reason,
-                occurred_at=body.occurred_at,
-                state_type=body.state_type,
-                quantity=quantity,
-                location_id=location.id,
-                provenance=body.provenance,
-                quality=body.quality,
-                physical_properties=body.physical_properties,
-            )
+            old = DomainState(id=predecessor.id, resource_id=predecessor.resource_id, organization_id=predecessor.organization_id, version=predecessor.resource_version, state_type=predecessor.state_type, quantity=Quantity(predecessor.quantity_value, predecessor.unit, predecessor.unit_registry_version), location_id=predecessor.location_id, effective_at=predecessor.effective_at, recorded_at=predecessor.recorded_at, created_by=predecessor.created_by, provenance=predecessor.provenance, quality=predecessor.quality, physical_properties=predecessor.physical_properties, predecessor_state_ids=tuple(predecessor.predecessor_state_ids))
+            new, event = transition_state(old, expected_version=expected, organization_id=principal.organization_id, actor_id=principal.actor_id, kind=TransitionKind(body.kind), reason=body.reason, occurred_at=body.occurred_at, state_type=body.state_type, quantity=quantity, location_id=location.id, provenance=body.provenance, quality=body.quality, physical_properties=body.physical_properties)
         except DomainError as exc:
             _fail(request, 422, exc.code, "VALIDATION_FAILURE", str(exc))
-        result = session.execute(
-            update(Resource)
-            .where(
-                Resource.id == resource.id,
-                Resource.organization_id == principal.organization_id,
-                Resource.version == expected,
-            )
-            .values(version=expected + 1)
-        )
+        result = session.execute(update(Resource).where(Resource.id == resource.id, Resource.organization_id == principal.organization_id, Resource.version == expected).values(version=expected + 1))
         if result.rowcount != 1:
             session.rollback()
             _fail(request, 412, "STALE_VERSION", "CONCURRENCY", "ResourceState version is stale.")
-        successor = ResourceState(
-            id=new.id,
-            organization_id=new.organization_id,
-            resource_id=new.resource_id,
-            resource_version=new.version,
-            state_type=new.state_type,
-            quantity_value=str(new.quantity.value),
-            unit=new.quantity.unit,
-            unit_registry_version=new.quantity.unit_registry_version,
-            location_id=new.location_id,
-            effective_at=new.effective_at,
-            recorded_at=datetime.now(UTC),
-            created_by=new.created_by,
-            provenance=dict(new.provenance),
-            quality=dict(new.quality),
-            physical_properties=dict(new.physical_properties),
-            predecessor_state_ids=list(new.predecessor_state_ids),
-        )
-        session.add_all(
-            [
-                successor,
-                StateTransition(
-                    id=event.id,
-                    organization_id=event.organization_id,
-                    resource_id=event.resource_id,
-                    predecessor_state_id=event.predecessor_state_id,
-                    successor_state_id=event.successor_state_id,
-                    aggregate_version=event.aggregate_version,
-                    transition_kind=event.kind.value,
-                    occurred_at=event.occurred_at,
-                    actor_id=event.actor_id,
-                    reason=event.reason,
-                    provenance=dict(event.provenance),
-                    idempotency_key=idempotency_key,
-                    request_hash=digest,
-                ),
-            ]
-        )
+        successor = ResourceState(id=new.id, organization_id=new.organization_id, resource_id=new.resource_id, resource_version=new.version, state_type=new.state_type, quantity_value=str(new.quantity.value), unit=new.quantity.unit, unit_registry_version=new.quantity.unit_registry_version, location_id=new.location_id, effective_at=new.effective_at, recorded_at=datetime.now(UTC), created_by=new.created_by, provenance=dict(new.provenance), quality=dict(new.quality), physical_properties=dict(new.physical_properties), predecessor_state_ids=list(new.predecessor_state_ids))
+        session.add_all([successor, StateTransition(id=event.id, organization_id=event.organization_id, resource_id=event.resource_id, predecessor_state_id=event.predecessor_state_id, successor_state_id=event.successor_state_id, aggregate_version=event.aggregate_version, transition_kind=event.kind.value, occurred_at=event.occurred_at, actor_id=event.actor_id, reason=event.reason, provenance=dict(event.provenance), idempotency_key=idempotency_key, request_hash=digest)])
         remember(session, principal, idempotency_key, digest, "StateTransition", successor.id)
-        emit(
-            session,
-            request,
-            principal,
-            "resource.state.transitioned",
-            "ResourceState",
-            resource.id,
-            new.version,
-            {
-                "predecessor_state_id": predecessor.id,
-                "successor_state_id": successor.id,
-                "resource_version": new.version,
-            },
-            idempotency_key,
-            predecessor.id,
-        )
+        emit(session, request, principal, "resource.state.transitioned", "ResourceState", resource.id, new.version, {"predecessor_state_id": predecessor.id, "successor_state_id": successor.id, "resource_version": new.version}, idempotency_key, predecessor.id)
         try:
             session.commit()
         except IntegrityError:
@@ -1051,13 +698,7 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
             _fail(request, 409, "CONFLICT", "DOMAIN_CONFLICT", "Transition conflicted.")
         except SQLAlchemyError:
             session.rollback()
-            _fail(
-                request,
-                503,
-                "DATABASE_UNAVAILABLE",
-                "DATABASE_FAILURE",
-                "Database operation failed.",
-            )
+            _fail(request, 503, "DATABASE_UNAVAILABLE", "DATABASE_FAILURE", "Database operation failed.")
         response.headers["ETag"] = f'"version-{successor.resource_version}"'
         return _envelope(request, _state_data(successor))
 
@@ -1068,27 +709,17 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
         session: Annotated[Session, Depends(db_session)],
         principal: Annotated[Principal, Depends(scope_required("resources:read"))],
     ):
-        resource = session.scalar(
-            select(Resource).where(
-                Resource.id == resource_id,
-                Resource.organization_id == principal.organization_id,
-            )
-        )
+        resource = session.scalar(select(Resource).where(Resource.id == resource_id, Resource.organization_id == principal.organization_id))
         if resource is None:
             _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Resource not found.")
-        states = session.scalars(
-            select(ResourceState)
-            .where(
-                ResourceState.resource_id == resource.id,
-                ResourceState.organization_id == principal.organization_id,
-            )
-            .order_by(ResourceState.resource_version)
-        ).all()
+        states = session.scalars(select(ResourceState).where(ResourceState.resource_id == resource.id, ResourceState.organization_id == principal.organization_id).order_by(ResourceState.resource_version)).all()
         return _envelope(request, [_state_data(item) for item in states])
 
     from crr.demand_api import router as demand_router
+    from crr.transformation_api import router as transformation_router
 
     app.include_router(demand_router)
+    app.include_router(transformation_router)
     return app
 
 
