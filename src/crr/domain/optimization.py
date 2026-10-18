@@ -49,11 +49,7 @@ class OptimizationPolicy:
         for name, weight in self.weights:
             if not name.strip() or name in seen:
                 raise DomainError("Optimization weights must use unique non-empty metric names.")
-            if (
-                isinstance(weight, bool)
-                or not isinstance(weight, Decimal)
-                or not weight.is_finite()
-            ):
+            if isinstance(weight, bool) or not isinstance(weight, Decimal) or not weight.is_finite():
                 raise DomainError("Optimization weights must be finite exact decimals.")
             seen.add(name)
 
@@ -118,9 +114,7 @@ def fingerprint_candidates(candidates: tuple[RouteCandidate, ...]) -> str:
                 "provenance": candidate.provenance,
             }
         )
-    payload = json.dumps(
-        canonical, sort_keys=True, separators=(",", ":"), default=str
-    ).encode()
+    payload = json.dumps(canonical, sort_keys=True, separators=(",", ":"), default=str).encode()
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -152,9 +146,7 @@ def _score(
         else policy.metric
     )
     if policy.objective is OptimizationObjective.WEIGHTED:
-        components = tuple(
-            (name, metrics[name] * weight) for name, weight in policy.weights
-        )
+        components = tuple((name, metrics[name] * weight) for name, weight in policy.weights)
         return sum((value for _, value in components), Decimal("0")), components
     if metric_name is None:
         raise DomainError("Optimization metric is required.")
@@ -173,15 +165,9 @@ def optimize_candidate_set(
 ) -> OptimizationResult:
     """Rank only feasible candidates using explicit deterministic metrics."""
     candidate_set.validate_tenant(organization_id)
-    feasible = [
-        item for item in candidate_set.candidates if item.status is RouteStatus.FEASIBLE
-    ]
+    feasible = [item for item in candidate_set.candidates if item.status is RouteStatus.FEASIBLE]
     excluded = tuple(
-        sorted(
-            item.id
-            for item in candidate_set.candidates
-            if item.status is not RouteStatus.FEASIBLE
-        )
+        sorted(item.id for item in candidate_set.candidates if item.status is not RouteStatus.FEASIBLE)
     )
 
     scored: list[tuple[str, Decimal, tuple[tuple[str, Decimal], ...]]] = []
@@ -191,11 +177,7 @@ def optimize_candidate_set(
             raise DomainError(f"Optimization metrics are missing for candidate: {candidate.id}.")
         metrics = dict(raw_metrics)
         for name, value in metrics.items():
-            if (
-                isinstance(value, bool)
-                or not isinstance(value, Decimal)
-                or not value.is_finite()
-            ):
+            if isinstance(value, bool) or not isinstance(value, Decimal) or not value.is_finite():
                 raise DomainError(f"Optimization metric must be a finite Decimal: {name}.")
         score, components = _score(policy, metrics)
         if not policy.allow_negative and score < 0:
