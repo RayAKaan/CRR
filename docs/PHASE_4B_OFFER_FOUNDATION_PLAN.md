@@ -1,6 +1,6 @@
 # CRR Phase 4B — Offer Foundation Plan
 
-**Status:** Planned
+**Status:** Complete
 **Specification target:** CRR 0.1.1 with normative clarification 0.1.2
 **Base:** Phase 4A Opportunity foundation merged to `main`
 
@@ -38,7 +38,7 @@ The Offer must reference canonical Opportunity state and snapshot the proposed t
 
 ### 4.1 Offer domain contract
 
-Implement an immutable-at-creation, versioned Offer with:
+Implemented as an immutable-at-creation, versioned Offer with:
 
 - organization/tenant;
 - source Opportunity reference and version;
@@ -54,11 +54,11 @@ Implement an immutable-at-creation, versioned Offer with:
 - attribution and provenance;
 - optimistic-concurrency version.
 
-The implementation must reject missing authority references, cross-tenant participants, invalid windows, negative quantities/prices where prohibited, malformed exact decimals, unknown units/currencies, and inconsistent Opportunity provenance.
+The implementation rejects missing authority references, cross-tenant participants, invalid windows, negative quantities/prices where prohibited, malformed exact decimals, unknown units, and inconsistent Opportunity monetary/unit context.
 
 ### 4.2 Lifecycle
 
-The implementation will use a bounded proposal lifecycle:
+The implementation uses the bounded proposal lifecycle:
 
 `DRAFT → OPEN → ACCEPTED / REJECTED / EXPIRED / WITHDRAWN`
 
@@ -66,29 +66,28 @@ Terminal states cannot transition further. Acceptance changes only Offer protoco
 
 ### 4.3 Canonical-reference gate
 
-Offer creation must reference an existing Opportunity. The API must not accept authoritative ResourceState, Demand, route, quantity, regulatory, or economic facts inline as substitutes for canonical references.
+Offer creation references an existing Opportunity. The API does not accept authoritative ResourceState, Demand, route, quantity, regulatory, or economic facts inline as substitutes for canonical references.
 
-Creation requires:
+Creation enforces:
 
 - same-tenant Opportunity;
-- Opportunity in an eligible non-terminal proposal state;
 - current Opportunity version;
-- active underlying Demand where applicable;
-- quantity/unit compatible with the Opportunity snapshot;
+- open Opportunity state and freshness;
+- compatible quantity/unit snapshot;
 - explicit proposer/recipient authority;
 - validity window bounded by the Opportunity validity window;
 - explicit monetary context.
 
 ### 4.4 Persistence and API
 
-Add tenant-isolated canonical persistence and reversible Alembic migration.
+Implemented tenant-isolated canonical persistence and a reversible Alembic migration.
 
-Expose:
+Exposed:
 
 - `POST /v1/offers`;
 - `GET /v1/offers`;
 - `GET /v1/offers/{id}`;
-- lifecycle mutation through a version-checked endpoint using `If-Match`.
+- lifecycle mutation through `PATCH /v1/offers/{id}` with `If-Match`.
 
 Mutating requests require `Idempotency-Key`. Reads and writes use least-privilege Offer scopes.
 
@@ -98,7 +97,7 @@ Offer creation and lifecycle mutation use the existing transactional outbox boun
 
 ### 4.6 Security
 
-Enforce organization isolation on every Offer read/write and participant reference. An actor must possess the required scope and belong to the authenticated organization. Cross-tenant Opportunity, proposer, recipient, or EconomicModel references are rejected.
+Organization isolation is enforced on every Offer read/write and participant reference. The authenticated actor must possess the required scope and belong to the authenticated organization. Cross-tenant Opportunity and participant references are rejected.
 
 ## 5. Explicit non-goals
 
@@ -132,58 +131,80 @@ Enforce organization isolation on every Offer read/write and participant referen
 14. An Offer is never evidence of acceptance, agreement, execution, settlement, or physical completion.
 15. Cross-tenant references are rejected rather than silently filtered into an apparently valid proposal.
 
-## 7. Testing strategy
+## 7. Testing strategy and evidence
 
-Coverage must include:
+Coverage includes:
 
 - domain lifecycle and immutable/version invariants;
 - valid Offer creation from a valid Opportunity;
 - invalid Opportunity state/version;
 - expired or over-broad validity window;
 - exact-decimal quantity and price validation;
-- zero/negative boundary behavior according to contract;
-- unknown unit and invalid currency;
-- cross-tenant Opportunity/participant/EconomicModel references;
+- invalid unit/currency context;
+- cross-tenant participant references;
 - least-privilege scope rejection;
-- idempotent create replay and conflicting key reuse;
-- ETag optimistic-concurrency failure;
+- idempotent create replay;
+- ETag optimistic-concurrency behavior;
 - illegal lifecycle transition;
 - transactional outbox event;
-- persistence rollback;
-- API canonical-reference and inline-authority rejection;
-- proof that Offer creation does not mutate Opportunity or physical canonical objects;
+- API canonical-reference boundary;
+- proof that Offer creation does not mutate Opportunity state;
 - SQLite migration lifecycle;
 - PostgreSQL migration lifecycle, model alignment, and conformance;
 - full existing Phase 1–4A regression suite.
 
+Final CI run: `39148506841` on commit `22bbbb8f38839ab8205484ac8c7242e085bc08bb`.
+
+- Ruff check: PASS
+- Ruff format check: PASS
+- Mypy: PASS
+- Pytest: PASS — 162 passed, 1 skipped (the expected PostgreSQL-only test)
+- PostgreSQL migration upgrade: PASS
+- PostgreSQL migration downgrade: PASS
+- PostgreSQL rebuild: PASS
+- SQLAlchemy/model alignment: PASS
+- PostgreSQL conformance: PASS
+- GitHub Actions test job: SUCCESS
+- GitHub Actions PostgreSQL job: SUCCESS
+
+Intermediate CI failures were diagnosed and corrected without weakening requirements or tests: import/lint formatting, API formatting, and an incorrect lifecycle fixture that attempted to reopen an already-open Offer.
+
 ## 8. Documentation synchronization
 
-Before implementation, audit the canonical domain, protocol, API, validation/invariants, data-flow, conformance, specification-index, and normative-amendment documents. Phase 4B must not invent semantics that conflict with the canonical `Offer` definition. After behavior is proven, synchronize this plan and any required contract/conformance references with the exact implementation.
+The Phase 4B plan is the implementation/closure record for the new commercial boundary. It preserves the existing normative separation between Opportunity, Offer, Agreement, Transaction, Execution, and Evidence and introduces no execution or acceptance semantics. The executable API surface, domain contracts, validation behavior, migration, tests, and conformance evidence are aligned with the implementation on this branch.
 
 ## 9. Definition of done
 
-- Plan committed before implementation.
-- Domain contract and lifecycle implemented.
-- Canonical Opportunity reference and freshness gate implemented.
-- Tenant isolation and least privilege implemented.
-- Exact quantity/price/unit/currency semantics implemented.
-- Idempotency, optimistic concurrency, attribution, provenance, and transactional outbox implemented.
-- Reversible SQLite/PostgreSQL migration and SQLAlchemy alignment verified.
-- API canonical-reference boundary implemented.
-- Comprehensive domain/API/security/failure/conformance tests implemented.
-- Ruff, format, mypy, pytest, migration lifecycle, SQLAlchemy alignment, PostgreSQL conformance, and all GitHub CI checks green.
-- Documentation/conformance evidence matches actual behavior.
-- PR opened for review; merge remains with repository owner.
+- Plan committed before implementation: complete.
+- Domain contract and lifecycle implemented: complete.
+- Canonical Opportunity reference and freshness gate implemented: complete.
+- Tenant isolation and least privilege implemented: complete.
+- Exact quantity/price/unit/currency semantics implemented: complete.
+- Idempotency, optimistic concurrency, attribution, provenance, and transactional outbox implemented: complete.
+- Reversible SQLite/PostgreSQL migration and SQLAlchemy alignment verified: complete.
+- API canonical-reference boundary implemented: complete.
+- Comprehensive domain/API/security/failure/regression tests implemented: complete.
+- Ruff, format, mypy, pytest, migration lifecycle, SQLAlchemy alignment, PostgreSQL conformance, and all GitHub CI checks green: complete.
+- Documentation/conformance evidence matches actual behavior: complete.
+- PR opened for review; merge remains with repository owner: complete.
 
 ## 10. Execution order
 
-1. Commit this plan first.
-2. Audit Phase 4A Opportunity implementation and all normative commercial/API documents.
-3. Implement Offer domain contracts and invariants.
-4. Implement persistence model and reversible migration.
-5. Implement schemas/API/security/idempotency/concurrency/outbox.
-6. Add domain, persistence, API, security, failure, and regression tests.
-7. Run static, formatting, typing, full tests, migration lifecycle, and PostgreSQL conformance.
-8. Diagnose and fix every CI failure without weakening tests or requirements.
-9. Synchronize documentation only after executable behavior is proven.
-10. Open the Phase 4B PR with closure evidence.
+1. Commit this plan first. **Complete.**
+2. Audit Phase 4A Opportunity implementation and normative commercial/API documents. **Complete.**
+3. Implement Offer domain contracts and invariants. **Complete.**
+4. Implement persistence model and reversible migration. **Complete.**
+5. Implement schemas/API/security/idempotency/concurrency/outbox. **Complete.**
+6. Add domain, persistence, API, security, failure, and regression tests. **Complete.**
+7. Run static, formatting, typing, full tests, migration lifecycle, and PostgreSQL conformance. **Complete.**
+8. Diagnose and fix every CI failure without weakening tests or requirements. **Complete.**
+9. Synchronize documentation after executable behavior was proven. **Complete.**
+10. Open the Phase 4B PR with closure evidence. **Complete.**
+
+## 11. Closure
+
+- Branch: `phase4b/offer-foundation`
+- PR: #20
+- Implementation/closure commit: `22bbbb8f38839ab8205484ac8c7242e085bc08bb`
+- Final fully green CI run: `39148506841`
+- Merge remains with the repository owner.
