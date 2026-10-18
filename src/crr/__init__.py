@@ -9,7 +9,8 @@ from crr.transformation_api import router as _transformation_router
 
 __version__ = "0.1.0"
 
-# Register routing, economics, opportunities, offers, and Transformation routers before Demand aggregates.
+# Register routing, economics, opportunities, offers, and Transformation routers
+# before Demand aggregates.
 _capability_router.include_router(_transformation_router)
 _capability_router.include_router(_routing_router)
 _capability_router.include_router(_economic_router)
