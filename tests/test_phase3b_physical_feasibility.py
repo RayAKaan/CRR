@@ -3,6 +3,7 @@ from decimal import Decimal
 
 import pytest
 
+from crr.domain.errors import TenantBoundaryError
 from crr.domain import (
     Capability,
     CapabilityStatus,
@@ -16,22 +17,10 @@ from crr.domain import (
     UnitRegistry,
     evaluate_transformation_route,
 )
-from crr.domain.errors import TenantBoundaryError
 
 
 START = datetime(2026, 10, 18, 10, 0, tzinfo=UTC)
 END = datetime(2026, 10, 18, 18, 0, tzinfo=UTC)
-
-
-@pytest.fixture
-def registry() -> UnitRegistry:
-    return UnitRegistry(
-        version="CRR-UNITS-0.1",
-        units={
-            "kg": UnitDefinition("kg", "MASS", Decimal("1")),
-            "t": UnitDefinition("t", "MASS", Decimal("1000")),
-        },
-    )
 
 
 def make_route_inputs(registry: UnitRegistry, **overrides):
