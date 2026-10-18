@@ -170,12 +170,7 @@ def evaluate_transformation_route(
     unit_registry: UnitRegistry,
     start_at: datetime,
 ) -> RouteCandidate:
-    """Evaluate one deterministic transformation-backed route.
-
-    This function consumes canonical domain objects and never mutates them. The
-    transformation's minimum declared yield is used for conservative feasibility:
-    if the minimum guaranteed output cannot satisfy demand, the route is blocked.
-    """
+    """Evaluate one deterministic transformation-backed route without mutation."""
     if source.organization_id != demand.organization_id:
         raise TenantBoundaryError("Routing source and target must share an organization.")
     if source.organization_id != capability.organization_id:
@@ -206,6 +201,14 @@ def evaluate_transformation_route(
     if capability.status is not CapabilityStatus.ACTIVE:
         rejections.append(
             _reject("CAPABILITY_INACTIVE", capability.id, "Capability is not ACTIVE.")
+        )
+    if transformation.id not in capability.transformation_ids:
+        rejections.append(
+            _reject(
+                "TRANSFORMATION_UNAVAILABLE",
+                transformation.id,
+                "Capability is not registered for this transformation.",
+            )
         )
     if capability.id not in transformation.eligible_capability_ids:
         rejections.append(
@@ -284,6 +287,17 @@ def evaluate_transformation_route(
                     "CAPACITY_INSUFFICIENT",
                     capability.id,
                     "Source quantity exceeds capability capacity.",
+                )
+            )
+        if (
+            capability.minimum_batch is not None
+            and source_capacity.value < capability.minimum_batch.value
+        ):
+            rejections.append(
+                _reject(
+                    "CAPACITY_INSUFFICIENT",
+                    capability.id,
+                    "Source quantity is below the capability minimum batch.",
                 )
             )
         if source_transformation_capacity.value > transformation.capacity.value:
