@@ -193,9 +193,9 @@ Phase 3F behavior is documented by this closure plan and the executable routing/
 
 - Branch: `phase3f/optimization-ranking-foundation`
 - PR: #17
-- Final implementation commit before CI: `e649c7fe973e302a99960e1a8a0d1a2fbfee49bb`
-- Final GitHub Actions run: `39143722547`
-- Final CI conclusion: **success**
+- Final implementation commit: `9e5eacaaef5bf8fc955188de07c79685395ca9ab`
+- Final implementation CI run: `39143926497`
+- Final implementation CI conclusion: **success**
 - Ruff check: PASS
 - Ruff format check: PASS
 - Mypy: PASS
@@ -206,4 +206,6 @@ Phase 3F behavior is documented by this closure plan and the executable routing/
 - SQLAlchemy/model alignment: PASS
 - PostgreSQL conformance: PASS
 
-An intermediate test failure was caused by a test fixture violating the existing RouteCandidate invariant that infeasible candidates must carry rejection reasons. The fixture was corrected to use a contractual rejection; no production invariant or test requirement was weakened.
+The final implementation test suite passed after correcting the weighted-objective assertion to match its deterministic signed-weight calculation. No production invariant, hard constraint, or CI requirement was weakened.
+
+This documentation-only closure update intentionally does not change runtime behavior; its own CI run is the final repository gate before merge.
