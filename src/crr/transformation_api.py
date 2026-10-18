@@ -134,7 +134,9 @@ def _check_refs(
     capability_ids: list[str],
     location_ids: list[str],
 ) -> None:
-    if len(set(capability_ids)) != len(capability_ids) or len(set(location_ids)) != len(location_ids):
+    duplicate_capabilities = len(set(capability_ids)) != len(capability_ids)
+    duplicate_locations = len(set(location_ids)) != len(location_ids)
+    if duplicate_capabilities or duplicate_locations:
         _fail(
             request,
             422,
@@ -298,7 +300,9 @@ def list_transformations(
     limit: int = Query(default=50, ge=1, le=100),
     cursor: str | None = None,
 ):
-    statement = select(Transformation).where(Transformation.organization_id == principal.organization_id)
+    statement = select(Transformation).where(
+        Transformation.organization_id == principal.organization_id
+    )
     if cursor:
         statement = statement.where(Transformation.id > cursor)
     rows = session.scalars(statement.order_by(Transformation.id).limit(limit + 1)).all()
@@ -380,10 +384,22 @@ def create_transformation(
         session.commit()
     except IntegrityError:
         session.rollback()
-        _fail(request, 409, "CONFLICT", "DOMAIN_CONFLICT", "Transformation creation conflicted.")
+        _fail(
+            request,
+            409,
+            "CONFLICT",
+            "DOMAIN_CONFLICT",
+            "Transformation creation conflicted.",
+        )
     except SQLAlchemyError:
         session.rollback()
-        _fail(request, 503, "DATABASE_UNAVAILABLE", "DATABASE_FAILURE", "Database operation failed.")
+        _fail(
+            request,
+            503,
+            "DATABASE_UNAVAILABLE",
+            "DATABASE_FAILURE",
+            "Database operation failed.",
+        )
     response.headers["ETag"] = '"version-1"'
     return _envelope(request, _data(item))
 
@@ -521,9 +537,21 @@ def patch_transformation(
         session.commit()
     except IntegrityError:
         session.rollback()
-        _fail(request, 409, "CONFLICT", "DOMAIN_CONFLICT", "Transformation update conflicted.")
+        _fail(
+            request,
+            409,
+            "CONFLICT",
+            "DOMAIN_CONFLICT",
+            "Transformation update conflicted.",
+        )
     except SQLAlchemyError:
         session.rollback()
-        _fail(request, 503, "DATABASE_UNAVAILABLE", "DATABASE_FAILURE", "Database operation failed.")
+        _fail(
+            request,
+            503,
+            "DATABASE_UNAVAILABLE",
+            "DATABASE_FAILURE",
+            "Database operation failed.",
+        )
     response.headers["ETag"] = f'"version-{item.version}"'
     return _envelope(request, _data(item))
