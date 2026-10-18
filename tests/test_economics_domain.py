@@ -99,7 +99,7 @@ def test_mismatched_component_currency_is_blocked():
         "test",
     )
     with pytest.raises(DomainError):
-        EconomicModel.__call__ if False else replace(make_model(), components=(wrong_currency,))
+        replace(make_model(), components=(wrong_currency,))
 
 
 def test_negative_component_amount_is_blocked():
