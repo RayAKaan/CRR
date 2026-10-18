@@ -49,7 +49,11 @@ class OptimizationPolicy:
         for name, weight in self.weights:
             if not name.strip() or name in seen:
                 raise DomainError("Optimization weights must use unique non-empty metric names.")
-            if isinstance(weight, bool) or not isinstance(weight, Decimal) or not weight.is_finite():
+            if (
+                isinstance(weight, bool)
+                or not isinstance(weight, Decimal)
+                or not weight.is_finite()
+            ):
                 raise DomainError("Optimization weights must be finite exact decimals.")
             seen.add(name)
 
@@ -165,9 +169,15 @@ def optimize_candidate_set(
 ) -> OptimizationResult:
     """Rank only feasible candidates using explicit deterministic metrics."""
     candidate_set.validate_tenant(organization_id)
-    feasible = [item for item in candidate_set.candidates if item.status is RouteStatus.FEASIBLE]
+    feasible = [
+        item for item in candidate_set.candidates if item.status is RouteStatus.FEASIBLE
+    ]
     excluded = tuple(
-        sorted(item.id for item in candidate_set.candidates if item.status is not RouteStatus.FEASIBLE)
+        sorted(
+            item.id
+            for item in candidate_set.candidates
+            if item.status is not RouteStatus.FEASIBLE
+        )
     )
 
     scored: list[tuple[str, Decimal, tuple[tuple[str, Decimal], ...]]] = []
@@ -177,7 +187,11 @@ def optimize_candidate_set(
             raise DomainError(f"Optimization metrics are missing for candidate: {candidate.id}.")
         metrics = dict(raw_metrics)
         for name, value in metrics.items():
-            if isinstance(value, bool) or not isinstance(value, Decimal) or not value.is_finite():
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, Decimal)
+                or not value.is_finite()
+            ):
                 raise DomainError(f"Optimization metric must be a finite Decimal: {name}.")
         score, components = _score(policy, metrics)
         if not policy.allow_negative and score < 0:
