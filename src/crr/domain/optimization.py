@@ -171,11 +171,7 @@ def optimize_candidate_set(
     candidate_set.validate_tenant(organization_id)
     feasible = [item for item in candidate_set.candidates if item.status is RouteStatus.FEASIBLE]
     excluded = tuple(
-        sorted(
-            item.id
-            for item in candidate_set.candidates
-            if item.status is not RouteStatus.FEASIBLE
-        )
+        sorted(item.id for item in candidate_set.candidates if item.status is not RouteStatus.FEASIBLE)
     )
 
     scored: list[tuple[str, Decimal, tuple[tuple[str, Decimal], ...]]] = []
