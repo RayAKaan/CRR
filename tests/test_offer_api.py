@@ -178,9 +178,11 @@ def test_offer_rejects_stale_opportunity_and_over_broad_window():
 def test_offer_lifecycle_requires_etag_and_rejects_terminal_reopen():
     client, token, engine = make_client(scopes=["offers:write", "offers:read"])
     seed_opportunity(engine)
+    payload = offer_payload()
+    payload["status"] = "DRAFT"
     create = client.post(
         "/v1/offers",
-        json=offer_payload(),
+        json=payload,
         headers=auth(token) | {"Idempotency-Key": "offer-life"},
     )
     assert create.status_code == 201
