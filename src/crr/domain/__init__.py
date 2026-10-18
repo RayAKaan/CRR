@@ -10,6 +10,7 @@ from crr.domain.logistics import (
     evaluate_logistics_leg,
 )
 from crr.domain.quantity import Quantity, QuantityValidationError, UnitDefinition, UnitRegistry
+from crr.domain.regulatory import evaluate_regulatory_eligibility
 from crr.domain.resource_state import (
     ResourceState,
     StateTransition,
@@ -56,6 +57,7 @@ __all__ = [
     "UnitRegistry",
     "evaluate_direct_route",
     "evaluate_logistics_leg",
+    "evaluate_regulatory_eligibility",
     "evaluate_transformation_route",
     "transition_state",
     "validate_capability_tenant",
