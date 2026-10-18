@@ -103,8 +103,6 @@ class Transformation:
         )
 
 
-def validate_transformation_tenant(
-    transformation: Transformation, organization_id: str
-) -> None:
+def validate_transformation_tenant(transformation: Transformation, organization_id: str) -> None:
     if transformation.organization_id != organization_id:
         raise TenantBoundaryError("Transformation belongs to a different organization.")
