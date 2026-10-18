@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -37,6 +38,7 @@ class RoutingComputeInput(BaseModel):
     target_demand_id: str = Field(min_length=1, max_length=80)
     valid_until: datetime | None = None
     optimization: OptimizationInput | None = None
+    decision_mode: Literal["ADVISORY"] | None = None
 
     @field_validator("valid_until")
     @classmethod
