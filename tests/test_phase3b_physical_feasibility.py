@@ -10,13 +10,13 @@ from crr.domain import (
     DemandStatus,
     Quantity,
     ResourceState,
-    TenantBoundaryError,
     Transformation,
     TransformationStatus,
     UnitDefinition,
     UnitRegistry,
     evaluate_transformation_route,
 )
+from crr.domain.errors import TenantBoundaryError
 
 
 START = datetime(2026, 10, 18, 10, 0, tzinfo=UTC)
