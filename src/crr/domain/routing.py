@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
+from crr.domain.capability import Capability, CapabilityStatus
+from crr.domain.demand import Demand, DemandStatus
 from crr.domain.errors import DomainError, TenantBoundaryError
 from crr.domain.quantity import Quantity, UnitRegistry
+from crr.domain.resource_state import ResourceState
+from crr.domain.transformation import Transformation, TransformationStatus
 
 
 class RouteStatus(StrEnum):
@@ -133,4 +138,202 @@ def evaluate_direct_route(
         target_version=demand_version,
         evaluated_at=evaluated_at,
         provenance={"source": "CRR_DETERMINISTIC_ROUTER"},
+    )
+
+
+def _spec_state_type(specification: dict[str, Any]) -> str | None:
+    value = specification.get("state_type")
+    return value if isinstance(value, str) and value else None
+
+
+def _matches_state_type(
+    state_type: str,
+    specifications: tuple[dict[str, Any], ...],
+) -> bool:
+    return any(_spec_state_type(spec) == state_type for spec in specifications)
+
+
+def _convert_quantity(
+    quantity: Quantity,
+    target_unit: str,
+    unit_registry: UnitRegistry,
+) -> Quantity:
+    return unit_registry.convert(quantity, target_unit)
+
+
+def evaluate_transformation_route(
+    *,
+    source: ResourceState,
+    demand: Demand,
+    capability: Capability,
+    transformation: Transformation,
+    unit_registry: UnitRegistry,
+    start_at: datetime,
+) -> RouteCandidate:
+    """Evaluate one deterministic transformation-backed route.
+
+    This function consumes canonical domain objects and never mutates them. The
+    transformation's minimum declared yield is used for conservative feasibility:
+    if the minimum guaranteed output cannot satisfy demand, the route is blocked.
+    """
+    if source.organization_id != demand.organization_id:
+        raise TenantBoundaryError("Routing source and target must share an organization.")
+    if source.organization_id != capability.organization_id:
+        raise TenantBoundaryError("Capability belongs to another organization.")
+    if source.organization_id != transformation.organization_id:
+        raise TenantBoundaryError("Transformation belongs to another organization.")
+
+    if start_at.tzinfo is None or start_at.utcoffset() is None:
+        raise DomainError("Route start time must include a timezone.")
+    start = start_at.astimezone(UTC)
+    end = start + timedelta(seconds=transformation.duration_seconds)
+    rejections: list[Rejection] = []
+
+    if demand.status is not DemandStatus.ACTIVE:
+        rejections.append(_reject("DEMAND_EXPIRED", demand.id, "Demand is not ACTIVE."))
+    if source.quantity.value <= 0:
+        rejections.append(
+            _reject("INSUFFICIENT_QUANTITY", source.id, "Zero quantity is not routing supply.")
+        )
+    if transformation.status is not TransformationStatus.ACTIVE:
+        rejections.append(
+            _reject(
+                "TRANSFORMATION_UNAVAILABLE",
+                transformation.id,
+                "Transformation is not ACTIVE.",
+            )
+        )
+    if capability.status is not CapabilityStatus.ACTIVE:
+        rejections.append(
+            _reject("CAPABILITY_INACTIVE", capability.id, "Capability is not ACTIVE.")
+        )
+    if capability.id not in transformation.eligible_capability_ids:
+        rejections.append(
+            _reject(
+                "CAPABILITY_INACTIVE",
+                capability.id,
+                "Capability is not eligible for this transformation.",
+            )
+        )
+    if capability.location_id not in transformation.eligible_location_ids:
+        rejections.append(
+            _reject(
+                "LOCATION_INFEASIBLE",
+                capability.location_id,
+                "Capability location is not eligible for the transformation.",
+            )
+        )
+    if source.location_id != capability.location_id:
+        rejections.append(
+            _reject(
+                "LOCATION_INFEASIBLE",
+                source.location_id,
+                "Source location does not match the transformation capability location.",
+            )
+        )
+    if not _matches_state_type(source.state_type, transformation.input_specifications):
+        rejections.append(
+            _reject(
+                "STATE_MISMATCH",
+                transformation.id,
+                "Source state does not satisfy transformation input specifications.",
+            )
+        )
+    if not _matches_state_type(demand.required_state, transformation.output_specifications):
+        rejections.append(
+            _reject(
+                "STATE_MISMATCH",
+                demand.id,
+                "Demand state does not satisfy transformation output specifications.",
+            )
+        )
+
+    if not (
+        capability.operating_window_start <= start
+        and end <= capability.operating_window_end
+    ):
+        rejections.append(
+            _reject(
+                "TIME_WINDOW_CONFLICT",
+                capability.id,
+                "Transformation does not fit the capability operating window.",
+            )
+        )
+    if start < demand.timing_start or end > demand.timing_end:
+        rejections.append(
+            _reject(
+                "TIME_WINDOW_CONFLICT",
+                demand.id,
+                "Transformation does not fit the demand timing window.",
+            )
+        )
+
+    try:
+        source_capacity = _convert_quantity(source.quantity, capability.capacity.unit, unit_registry)
+        source_transformation_capacity = _convert_quantity(
+            source.quantity, transformation.capacity.unit, unit_registry
+        )
+        demand_min = _convert_quantity(demand.quantity_min, source.quantity.unit, unit_registry)
+        guaranteed_output = source.quantity.value * transformation.yield_min
+    except DomainError as exc:
+        rejections.append(_reject("UNIT_INCOMPATIBLE", source.id, str(exc)))
+    else:
+        if source_capacity.value > capability.capacity.value:
+            rejections.append(
+                _reject(
+                    "CAPACITY_INSUFFICIENT",
+                    capability.id,
+                    "Source quantity exceeds capability capacity.",
+                )
+            )
+        if source_transformation_capacity.value > transformation.capacity.value:
+            rejections.append(
+                _reject(
+                    "CAPACITY_INSUFFICIENT",
+                    transformation.id,
+                    "Source quantity exceeds transformation capacity.",
+                )
+            )
+        if guaranteed_output < demand_min.value:
+            rejections.append(
+                _reject(
+                    "INSUFFICIENT_QUANTITY",
+                    transformation.id,
+                    "Minimum guaranteed transformation output is below demand minimum.",
+                )
+            )
+
+    if source.quantity.unit_registry_version != transformation.capacity.unit_registry_version:
+        rejections.append(
+            _reject(
+                "UNIT_INCOMPATIBLE",
+                transformation.id,
+                "Source and transformation capacity use different unit registries.",
+            )
+        )
+
+    status = RouteStatus.INFEASIBLE if rejections else RouteStatus.FEASIBLE
+    return RouteCandidate(
+        id=f"route_{source.id}_{transformation.id}_{demand.id}",
+        organization_id=source.organization_id,
+        source_resource_state_id=source.id,
+        target_demand_id=demand.id,
+        legs=(
+            RouteLeg(
+                "TRANSFORMATION",
+                transformation.id,
+                source.state_type,
+                demand.required_state,
+            ),
+        ),
+        status=status,
+        rejections=tuple(rejections),
+        source_version=source.version,
+        target_version=demand.version,
+        evaluated_at=start,
+        provenance={
+            "source": "CRR_DETERMINISTIC_ROUTER",
+            "capability_version": capability.version,
+            "transformation_version": transformation.version,
+        },
     )
