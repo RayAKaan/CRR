@@ -15,12 +15,12 @@ from crr.capability_model import Capability
 from crr.demand_model import Demand
 from crr.domain.capability import Capability as DomainCapability
 from crr.domain.capability import CapabilityStatus
-from crr.domain.demand import Demand as DomainDemand
-from crr.domain.demand import DemandStatus
 from crr.domain.decision_support import (
     DecisionAdvisory,
     build_decision_advisory,
 )
+from crr.domain.demand import Demand as DomainDemand
+from crr.domain.demand import DemandStatus
 from crr.domain.errors import DomainError
 from crr.domain.optimization import (
     CandidateSet,
