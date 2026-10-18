@@ -74,9 +74,7 @@ def evaluate_regulatory_eligibility(
     capability_controls = _mapping(
         capability.regulatory_constraints, "regulatory_constraints", capability.id
     )
-    demand_controls = _mapping(
-        demand.regulatory_constraints, "regulatory_constraints", demand.id
-    )
+    demand_controls = _mapping(demand.regulatory_constraints, "regulatory_constraints", demand.id)
     transformation_controls = _mapping(
         transformation.regulatory_requirements, "regulatory_requirements", transformation.id
     )
@@ -153,9 +151,11 @@ def evaluate_regulatory_eligibility(
         )
 
     safety_controls = transformation_controls.get("required_safety_controls", [])
-    safety_controls += demand_controls.get("required_safety_controls", []) if isinstance(
-        demand_controls.get("required_safety_controls", []), list
-    ) else []
+    safety_controls += (
+        demand_controls.get("required_safety_controls", [])
+        if isinstance(demand_controls.get("required_safety_controls", []), list)
+        else []
+    )
     required_safety = _list_values(safety_controls, "required_safety_controls", transformation.id)
     for control in required_safety:
         if capability_controls.get("safety_controls", {}).get(control) is not True:
