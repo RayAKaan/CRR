@@ -18,6 +18,13 @@ from crr.domain.capability import CapabilityStatus
 from crr.domain.demand import Demand as DomainDemand
 from crr.domain.demand import DemandStatus
 from crr.domain.errors import DomainError
+from crr.domain.optimization import (
+    CandidateSet,
+    OptimizationObjective,
+    OptimizationPolicy,
+    OptimizationResult,
+    optimize_candidate_set,
+)
 from crr.domain.quantity import Quantity
 from crr.domain.regulatory import evaluate_regulatory_eligibility
 from crr.domain.resource_state import ResourceState as DomainResourceState
@@ -242,6 +249,28 @@ def _location_rejected_candidate(
     )
 
 
+def _optimization_data(result: OptimizationResult) -> dict[str, Any]:
+    return {
+        "candidate_set_fingerprint": result.candidate_set_fingerprint,
+        "policy": {
+            "id": result.policy_id,
+            "version": result.policy_version,
+            "calculation_version": result.calculation_version,
+        },
+        "ranked": [
+            {
+                "candidate_id": item.candidate_id,
+                "rank": item.rank,
+                "score": str(item.score),
+                "components": {name: str(value) for name, value in item.components},
+            }
+            for item in result.ranked
+        ],
+        "excluded_candidate_ids": list(result.excluded_candidate_ids),
+        "provenance": result.provenance,
+    }
+
+
 @router.post("/v1/routes/compute")
 def compute_routes(
     body: RoutingComputeInput,
@@ -315,6 +344,7 @@ def compute_routes(
         select(Transformation).where(Transformation.organization_id == principal.organization_id)
     ).all()
     capability_by_id = {item.id: item for item in capabilities}
+    transformation_by_id = {item.id: item for item in transformations}
 
     for transformation_row in sorted(transformations, key=lambda item: item.id):
         transformation = _domain_transformation(transformation_row)
@@ -344,12 +374,62 @@ def compute_routes(
             candidates.append(_with_rejections(candidate, regulatory_rejections))
 
     candidates.sort(key=lambda item: item.id)
-    return _envelope(
-        request,
-        {
-            "source_resource_state_id": source.id,
-            "target_demand_id": demand.id,
-            "candidates": [_candidate_data(item) for item in candidates],
-            "computed_at": datetime.now(UTC).isoformat(),
-        },
-    )
+    response_data: dict[str, Any] = {
+        "source_resource_state_id": source.id,
+        "target_demand_id": demand.id,
+        "candidates": [_candidate_data(item) for item in candidates],
+        "computed_at": datetime.now(UTC).isoformat(),
+    }
+
+    if body.optimization is not None:
+        optimization_result: OptimizationResult | None = None
+        try:
+            objective = OptimizationObjective(body.optimization.objective)
+            policy = OptimizationPolicy(
+                id=body.optimization.policy_id,
+                version=body.optimization.policy_version,
+                objective=objective,
+                calculation_version=body.optimization.calculation_version,
+                metric=body.optimization.metric,
+                weights=tuple(sorted(body.optimization.weights.items())),
+                allow_negative=body.optimization.allow_negative,
+                provenance={"source": "CRR_API", "request_id": request.state.request_id},
+            )
+            candidate_set = CandidateSet.from_candidates(
+                principal.organization_id, tuple(candidates)
+            )
+            metrics_by_candidate: dict[str, dict[str, Decimal]] = {}
+            for candidate in candidates:
+                duration = Decimal("0")
+                for leg in candidate.legs:
+                    if leg.kind == "TRANSFORMATION":
+                        transformation_row = transformation_by_id.get(leg.object_id)
+                        if transformation_row is None:
+                            _fail(
+                                request,
+                                409,
+                                "CANDIDATE_SET_STALE",
+                                "DOMAIN_CONFLICT",
+                                "Transformation referenced by candidate is no longer available.",
+                            )
+                        duration += Decimal(str(transformation_row.duration_seconds))
+                metrics_by_candidate[candidate.id] = {"duration_seconds": duration}
+        except ValueError as exc:
+            _fail(
+                request,
+                422,
+                "INVALID_OPTIMIZATION_OBJECTIVE",
+                "VALIDATION_FAILURE",
+                str(exc),
+            )
+        except DomainError as exc:
+            _fail(request, 422, exc.code, "VALIDATION_FAILURE", str(exc))
+        optimization_result = optimize_candidate_set(
+            candidate_set=candidate_set,
+            policy=policy,
+            metrics_by_candidate=metrics_by_candidate,
+            organization_id=principal.organization_id,
+        )
+        response_data["optimization"] = _optimization_data(optimization_result)
+
+    return _envelope(request, response_data)
