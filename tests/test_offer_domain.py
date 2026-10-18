@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -51,8 +52,6 @@ def test_offer_tenant_boundary_is_explicit():
         make_offer().validate_tenant("org_b")
 
 
-def test_offer_rejects_naive_or_invalid_window():
+def test_offer_rejects_invalid_window():
     with pytest.raises(DomainError):
-        Offer(
-            **{**make_offer().__dict__, "valid_until": datetime(2026, 10, 18, 11, tzinfo=UTC)}
-        )
+        replace(make_offer(), valid_until=datetime(2026, 10, 18, 11, tzinfo=UTC))
