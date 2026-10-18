@@ -79,8 +79,7 @@ def _candidate(body: OpportunityInput) -> RouteCandidate:
         ),
         status=RouteStatus.FEASIBLE,
         rejections=tuple(
-            Rejection(item.code, item.object_id, item.message)
-            for item in snapshot.rejections
+            Rejection(item.code, item.object_id, item.message) for item in snapshot.rejections
         ),
         source_version=snapshot.source_version,
         target_version=snapshot.target_version,
@@ -466,9 +465,7 @@ def create_opportunity(
     if prior:
         return _replay(session, response, request, prior, principal.organization_id)
 
-    source, demand, economic_model, candidate = _validate_source(
-        session, request, principal, body
-    )
+    source, demand, economic_model, candidate = _validate_source(session, request, principal, body)
     if _fingerprint(candidate) != body.candidate_set_fingerprint:
         _fail(
             request,
@@ -590,10 +587,7 @@ def transition_opportunity(
             "CONCURRENCY_FAILURE",
             "If-Match does not match current version.",
         )
-    digest = _body_hash(
-        body.model_dump(mode="json")
-        | {"opportunity_id": opportunity_id, "if_match": if_match}
-    )
+    digest = _body_hash(body.model_dump(mode="json") | {"opportunity_id": opportunity_id, "if_match": if_match})
     prior = _idempotency(session, principal.organization_id, idempotency_key, digest, request)
     _check_reuse(prior, digest, request)
     if prior:
