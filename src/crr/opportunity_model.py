@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import JSON, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Index, JSON, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from crr.models import AwareDateTime, Base, ExactDecimal
@@ -21,6 +21,8 @@ class Opportunity(Base):
             "route_candidate_id",
             "candidate_set_fingerprint",
         ),
+        Index("ix_opportunities_organization_status", "organization_id", "status"),
+        Index("ix_opportunities_organization_demand", "organization_id", "target_demand_id"),
     )
 
     id: Mapped[str] = mapped_column(String(80), primary_key=True)
