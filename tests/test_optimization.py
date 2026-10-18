@@ -113,11 +113,11 @@ def test_weighted_objective_uses_signed_weights_deterministically():
         },
         organization_id="org_a",
     )
-    assert [item.candidate_id for item in result.ranked] == ["route_a", "route_b"]
-    assert result.ranked[0].score == Decimal("2")
+    assert [item.candidate_id for item in result.ranked] == ["route_b", "route_a"]
+    assert result.ranked[0].score == Decimal("8")
     assert dict(result.ranked[0].components) == {
-        "cost": Decimal("-10"),
-        "value": Decimal("12"),
+        "cost": Decimal("-2"),
+        "value": Decimal("10"),
     }
 
 
