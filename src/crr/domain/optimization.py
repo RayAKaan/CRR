@@ -170,9 +170,12 @@ def optimize_candidate_set(
     """Rank only feasible candidates using explicit deterministic metrics."""
     candidate_set.validate_tenant(organization_id)
     feasible = [item for item in candidate_set.candidates if item.status is RouteStatus.FEASIBLE]
-    excluded = tuple(
-        sorted(item.id for item in candidate_set.candidates if item.status is not RouteStatus.FEASIBLE)
+    excluded_ids = (
+        item.id
+        for item in candidate_set.candidates
+        if item.status is not RouteStatus.FEASIBLE
     )
+    excluded = tuple(sorted(excluded_ids))
 
     scored: list[tuple[str, Decimal, tuple[tuple[str, Decimal], ...]]] = []
     for candidate in feasible:
