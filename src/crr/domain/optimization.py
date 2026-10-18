@@ -36,7 +36,10 @@ class OptimizationPolicy:
             raise DomainError("Optimization policy identity and positive version are required.")
         if not self.calculation_version.strip():
             raise DomainError("Optimization calculation version is required.")
-        if self.objective in {OptimizationObjective.MAX_METRIC, OptimizationObjective.MIN_METRIC}:
+        if self.objective is OptimizationObjective.MIN_DURATION:
+            if self.metric not in (None, "duration_seconds"):
+                raise DomainError("MIN_DURATION uses the duration_seconds metric.")
+        elif self.objective in {OptimizationObjective.MAX_METRIC, OptimizationObjective.MIN_METRIC}:
             if not self.metric or not self.metric.strip():
                 raise DomainError("A metric is required for metric optimization.")
         if self.objective is OptimizationObjective.WEIGHTED and not self.weights:
@@ -134,15 +137,16 @@ class OptimizationResult:
 
 
 def _score(policy: OptimizationPolicy, metrics: Mapping[str, Decimal]) -> tuple[Decimal, tuple[tuple[str, Decimal], ...]]:
+    metric_name = "duration_seconds" if policy.objective is OptimizationObjective.MIN_DURATION else policy.metric
     if policy.objective is OptimizationObjective.WEIGHTED:
         components = tuple((name, metrics[name] * weight) for name, weight in policy.weights)
         return sum((value for _, value in components), Decimal("0")), components
-    if policy.metric is None:
+    if metric_name is None:
         raise DomainError("Optimization metric is required.")
-    if policy.metric not in metrics:
-        raise DomainError(f"Optimization metric is unavailable: {policy.metric}.")
-    value = metrics[policy.metric]
-    return value, ((policy.metric, value),)
+    if metric_name not in metrics:
+        raise DomainError(f"Optimization metric is unavailable: {metric_name}.")
+    value = metrics[metric_name]
+    return value, ((metric_name, value),)
 
 
 def optimize_candidate_set(
@@ -171,11 +175,7 @@ def optimize_candidate_set(
             raise DomainError("Optimization policy does not allow negative scores.")
         scored.append((candidate.id, score, components))
 
-    reverse = policy.objective in {OptimizationObjective.MAX_METRIC, OptimizationObjective.MAX_METRIC}
-    if policy.objective is OptimizationObjective.WEIGHTED:
-        reverse = sum((weight for _, weight in policy.weights), Decimal("0")) >= 0
-    if policy.objective is OptimizationObjective.MIN_DURATION:
-        reverse = False
+    reverse = policy.objective in {OptimizationObjective.MAX_METRIC, OptimizationObjective.WEIGHTED}
     scored.sort(key=lambda item: ((-item[1]) if reverse else item[1], item[0]))
 
     ranked = tuple(
