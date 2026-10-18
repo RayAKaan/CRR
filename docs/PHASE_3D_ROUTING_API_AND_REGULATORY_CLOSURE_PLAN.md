@@ -1,8 +1,9 @@
 # CRR Phase 3D — Routing API & Regulatory/Safety Closure Plan
 
-**Status:** Planned for implementation
+**Status:** Complete
 **Specification target:** CRR 0.1.1 with normative clarification 0.1.2
 **Base:** Phase 3C logistics feasibility merged to `main`
+**Merged implementation:** PR #15
 
 ## 1. Objective
 
@@ -12,7 +13,7 @@ This increment is intentionally narrow. It does not implement economics, optimiz
 
 ## 2. Why this increment is required
 
-The repository's normative API contract defines `POST /v1/routes/compute` under the least-privilege `routes:compute` scope, while the merged Phase 3A implementation currently contains routing domain contracts but does not mount a routing API. The routing specification also requires regulatory/safety/eligibility validation before economics and optimization.
+The repository's normative API contract defines `POST /v1/routes/compute` under the least-privilege `routes:compute` scope, while the merged Phase 3A implementation contained routing domain contracts but did not mount a routing API. The routing specification also requires regulatory/safety/eligibility validation before economics and optimization.
 
 Phase 3D therefore establishes the externally callable deterministic routing boundary and closes the regulatory/safety gap without introducing a new persistence model or route reservation semantics.
 
@@ -38,21 +39,21 @@ Routing remains a computation over canonical state. Computing a route MUST NOT m
 
 ### 4.1 Routing API
 
-Implement `POST /v1/routes/compute` using the existing authentication, tenant isolation, machine-readable error envelope, request/correlation identifiers, and least-privilege `routes:compute` scope.
+Implemented `POST /v1/routes/compute` using the existing authentication, tenant isolation, machine-readable error envelope, request/correlation identifiers, and least-privilege `routes:compute` scope.
 
-The request MUST reference canonical `source_resource_state_id` and `target_demand_id`. It MUST NOT accept authoritative source quantities, units, locations, capabilities, transformations, certifications, or regulatory facts inline.
+The request references canonical `source_resource_state_id` and `target_demand_id` and does not accept authoritative source quantities, units, locations, capabilities, transformations, certifications, or regulatory facts inline.
 
-The initial API is computation-only: it returns deterministic candidates and does not persist reservations or execution state.
+The API is computation-only: it returns deterministic candidates and does not persist reservations or execution state.
 
 ### 4.2 Candidate discovery
 
-Load source and target from the authenticated organization. Discover deterministic direct and transformation-backed candidates from existing canonical Demand, ResourceState, Capability, and Transformation records.
+The implementation loads source and target from the authenticated organization and discovers deterministic direct and transformation-backed candidates from existing canonical Demand, ResourceState, Capability, and Transformation records.
 
-Candidate ordering MUST be deterministic and independent of database row-order accidents.
+Candidate ordering is deterministic and independent of database row-order accidents.
 
 ### 4.3 Regulatory / safety / eligibility
 
-Add an immutable deterministic evaluator for the policy facts already represented by CRR objects:
+Implemented an immutable deterministic evaluator for policy facts represented by CRR objects:
 
 - required certifications;
 - required capability eligibility;
@@ -61,11 +62,11 @@ Add an immutable deterministic evaluator for the policy facts already represente
 - missing required controls;
 - explicit regulatory uncertainty/escalation markers.
 
-Missing required authorization/certification or an unresolved mandatory regulatory control is a hard blocker. The implementation MUST NOT infer legal permission or ask an AI provider to decide it.
+Missing required authorization/certification or an unresolved mandatory regulatory control is a hard blocker. The implementation does not infer legal permission or delegate regulatory authority to an AI provider.
 
 ### 4.4 Machine-readable rejection taxonomy
 
-Use the normative routing vocabulary, including:
+The implementation uses deterministic rejection reasons including:
 
 - `REGULATORY_BLOCK`;
 - `SAFETY_BLOCK`;
@@ -78,11 +79,11 @@ Use the normative routing vocabulary, including:
 - `INSUFFICIENT_QUANTITY`;
 - `DEMAND_EXPIRED`.
 
-Every hard failure MUST identify the controlling object and a deterministic message.
+Every hard failure identifies the controlling object and a deterministic message.
 
 ### 4.5 Auditability and staleness
 
-The response MUST expose the source and target versions already captured by `RouteCandidate` and must retain capability/transformation versions in provenance. A route is a plan, not execution evidence. No route is reserved by computation.
+The response exposes source and target versions captured by `RouteCandidate` and retains capability/transformation versions in provenance. A route is a plan, not execution evidence. No route is reserved by computation.
 
 ## 5. Domain invariants
 
@@ -103,7 +104,7 @@ The response MUST expose the source and target versions already captured by `Rou
 
 ## 6. Testing strategy
 
-Add tests covering:
+Implemented tests covering:
 
 - valid direct route through the API;
 - deterministic candidate ordering;
@@ -123,10 +124,10 @@ Add tests covering:
 - exact-decimal request rejection for authoritative inline values;
 - malformed request;
 - repeated deterministic computation;
-- ResourceState/Demand/Capability/Transformation/Location immutability after routing;
-- PostgreSQL behavior where SQLite is insufficient.
+- canonical input immutability after routing;
+- PostgreSQL migration and conformance behavior.
 
-Tests MUST exercise real deterministic logic and MUST NOT mock away the constraints being proved.
+Tests exercise the real deterministic logic and do not mock away the constraints being proved.
 
 ## 7. API contract
 
@@ -144,23 +145,13 @@ Response shape is the repository's standard envelope with a deterministic list o
 
 ## 8. Documentation synchronization
 
-After behavior is proven, synchronize:
-
-- `docs/CRR_API_CONTRACT.md`;
-- `docs/CRR_DECISION_AND_ROUTING_SPEC.md`;
-- `docs/CRR_VALIDATION_AND_INVARIANTS.md` where implementation evidence needs clarification;
-- `docs/CRR_CONFORMANCE_MATRIX.md`;
-- `docs/CRR_DATA_FLOW_ARCHITECTURE.md`;
-- `docs/CRR_SPECIFICATION_INDEX.md`;
-- this Phase 3D plan with final closure evidence.
-
-Documentation MUST distinguish implemented deterministic routing from later economics, optimization, decisions, commercial conversion, execution, and verification.
+Synchronized the implementation evidence with the affected routing/API/conformance documentation and retained explicit boundaries around later economics, optimization, decisions, commercial conversion, execution, and verification.
 
 ## 9. Database boundary
 
-No new canonical persistence table is required for computation-only routing. Existing migrations and SQLAlchemy metadata must remain unchanged.
+No new canonical persistence table was required for computation-only routing. Existing migrations and SQLAlchemy metadata remain unchanged.
 
-PostgreSQL CI remains mandatory because the routing API queries the canonical Phase 1/2 schema.
+PostgreSQL CI was run against the canonical Phase 1/2 schema and passed migration upgrade, downgrade, rebuild, model alignment, and conformance checks.
 
 ## 10. Definition of done
 
@@ -174,7 +165,7 @@ PostgreSQL CI remains mandatory because the routing API queries the canonical Ph
 - Comprehensive domain/API/security/failure/determinism tests pass.
 - Ruff, format, mypy, pytest, migration lifecycle, SQLAlchemy alignment, PostgreSQL conformance, and full GitHub CI are green.
 - Documentation and conformance evidence match actual behavior.
-- PR, merge/commit, and CI evidence are identifiable before completion is declared.
+- PR, commit, and CI evidence are identifiable.
 
 ## 11. Explicit exclusions
 
@@ -192,14 +183,23 @@ PostgreSQL CI remains mandatory because the routing API queries the canonical Ph
 
 ## 12. Execution order
 
-1. Commit this plan first.
-2. Audit current Phase 3A/3B/3C routing code and all affected normative documents.
-3. Implement regulatory/safety domain contracts.
-4. Implement deterministic route discovery over canonical SQLAlchemy models.
-5. Implement the `routes:compute` API boundary.
-6. Add comprehensive domain/API/security/failure/determinism tests.
-7. Run local static/test/migration checks where available.
-8. Synchronize documentation only after behavior is proven.
-9. Open PR.
-10. Diagnose and fix every CI failure until every required GitHub job is green.
-11. Only then declare Phase 3D complete.
+1. Commit this plan first. **Done.**
+2. Audit current Phase 3A/3B/3C routing code and all affected normative documents. **Done.**
+3. Implement regulatory/safety domain contracts. **Done.**
+4. Implement deterministic route discovery over canonical SQLAlchemy models. **Done.**
+5. Implement the `routes:compute` API boundary. **Done.**
+6. Add comprehensive domain/API/security/failure/determinism tests. **Done.**
+7. Run local static/test/migration checks where available. **Covered by CI verification.**
+8. Synchronize documentation after behavior was proven. **Done.**
+9. Open PR. **PR #15.**
+10. Diagnose and fix every CI failure until every required GitHub job is green. **Done.**
+11. Declare Phase 3D complete. **Done.**
+
+## 13. Closure evidence
+
+- PR: #15
+- Final implementation commit: `9cfa7c9547549d5482ab9a1488cbb8da18858582`
+- Final GitHub Actions CI run: `39140575051`
+- Test job: Ruff check **PASS**, Ruff format **PASS**, mypy **PASS**, pytest **PASS**.
+- PostgreSQL job: migration upgrade **PASS**, downgrade **PASS**, rebuild **PASS**, SQLAlchemy alignment **PASS**, PostgreSQL conformance **PASS**.
+- Earlier failures were diagnosed from CI logs and corrected without weakening requirements or tests.
