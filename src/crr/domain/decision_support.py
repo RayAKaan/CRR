@@ -150,7 +150,9 @@ def build_decision_advisory(
     )
     leading = alternatives[0] if alternatives else None
     if leading is None:
-        rationale = ("No feasible route received a rank; the advisory cannot recommend a route.",)
+        rationale: tuple[str, ...] = (
+            "No feasible route received a rank; the advisory cannot recommend a route.",
+        )
         leading_id = None
     else:
         rationale = (
