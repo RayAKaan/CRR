@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
@@ -76,41 +75,6 @@ def _candidate_data(candidate: RouteCandidate) -> dict[str, Any]:
     }
 
 
-def _rejected_candidate(
-    *,
-    source: ResourceState,
-    demand: Demand,
-    code: str,
-    object_id: str,
-    message: str,
-    evaluated_at: datetime,
-    transformation: Transformation | None = None,
-) -> RouteCandidate:
-    legs = (
-        RouteLeg(
-            "TRANSFORMATION",
-            transformation.id,
-            source.state_type,
-            demand.required_state,
-        ),
-    ) if transformation else (
-        RouteLeg("DIRECT", source.id, source.state_type, demand.required_state),
-    )
-    return RouteCandidate(
-        id=f"route_{source.id}_{demand.id}_{transformation.id if transformation else 'direct'}",
-        organization_id=source.organization_id,
-        source_resource_state_id=source.id,
-        target_demand_id=demand.id,
-        legs=legs,
-        status=RouteStatus.INFEASIBLE,
-        rejections=(Rejection(code, object_id, message),),
-        source_version=source.resource_version,
-        target_version=demand.version,
-        evaluated_at=evaluated_at,
-        provenance={"source": "CRR_DETERMINISTIC_ROUTER"},
-    )
-
-
 def _transformation_candidate(
     source: ResourceState,
     demand: Demand,
@@ -155,17 +119,16 @@ def _transformation_candidate(
                     rejection = Rejection("YIELD_INVALID", transformation.id, "Minimum declared yield cannot satisfy demand minimum.")
             except DomainError as exc:
                 rejection = Rejection("UNIT_INCOMPATIBLE", transformation.id, str(exc))
-            if rejection is None:
-                if not any(
-                    _state_spec_matches(spec, source.state_type)
-                    for spec in transformation.input_specifications
-                ):
-                    rejection = Rejection("STATE_MISMATCH", transformation.id, "Transformation input does not accept source state.")
-                elif not any(
-                    _state_spec_matches(spec, demand.required_state)
-                    for spec in transformation.output_specifications
-                ):
-                    rejection = Rejection("STATE_MISMATCH", transformation.id, "Transformation output does not satisfy demand state.")
+            if rejection is None and not any(
+                _state_spec_matches(spec, source.state_type)
+                for spec in transformation.input_specifications
+            ):
+                rejection = Rejection("STATE_MISMATCH", transformation.id, "Transformation input does not accept source state.")
+            elif rejection is None and not any(
+                _state_spec_matches(spec, demand.required_state)
+                for spec in transformation.output_specifications
+            ):
+                rejection = Rejection("STATE_MISMATCH", transformation.id, "Transformation output does not satisfy demand state.")
     legs = (RouteLeg("TRANSFORMATION", transformation.id, source.state_type, demand.required_state),)
     return RouteCandidate(
         id=f"route_{source.id}_{demand.id}_{transformation.id}",
