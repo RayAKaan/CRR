@@ -10,7 +10,13 @@ from crr.domain.resource_state import (
     TransitionKind,
     transition_state,
 )
-from crr.domain.routing import RouteCandidate, RouteLeg, RouteStatus, Rejection, evaluate_direct_route
+from crr.domain.routing import (
+    Rejection,
+    RouteCandidate,
+    RouteLeg,
+    RouteStatus,
+    evaluate_direct_route,
+)
 from crr.domain.transformation import (
     Transformation,
     TransformationStatus,
@@ -21,11 +27,12 @@ __all__ = [
     "Capability",
     "CapabilityStatus",
     "Demand",
+    "DemandStatus",
     "DomainError",
     "Quantity",
     "QuantityValidationError",
-    "ResourceState",
     "Rejection",
+    "ResourceState",
     "RouteCandidate",
     "RouteLeg",
     "RouteStatus",
