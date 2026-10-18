@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from crr.api import create_app
-from crr.models import APIKey, Actor, Base, Organization, OutboxEvent
+from crr.models import Actor, APIKey, Base, Organization, OutboxEvent
 from crr.opportunity_model import Opportunity
 
 NOW = datetime(2026, 10, 18, 12, tzinfo=UTC)
