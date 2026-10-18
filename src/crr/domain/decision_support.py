@@ -7,7 +7,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from crr.domain.errors import DomainError, TenantBoundaryError
+from crr.domain.errors import DomainError
 from crr.domain.optimization import (
     CandidateSet,
     OptimizationObjective,
@@ -68,8 +68,13 @@ class DecisionAdvisory:
         if not self.human_review_required:
             raise DomainError("Decision advisory must require human review.")
         if self.leading_candidate_id is not None:
-            if not self.alternatives or self.alternatives[0].candidate_id != self.leading_candidate_id:
-                raise DomainError("The leading advisory candidate must be the first ranked alternative.")
+            if (
+                not self.alternatives
+                or self.alternatives[0].candidate_id != self.leading_candidate_id
+            ):
+                raise DomainError(
+                    "The leading advisory candidate must be the first ranked alternative."
+                )
         if len({item.candidate_id for item in self.alternatives}) != len(self.alternatives):
             raise DomainError("Advisory candidate IDs must be unique.")
 
@@ -108,11 +113,18 @@ def build_decision_advisory(
     """Build deterministic advisory output from one fixed ranked candidate set."""
     candidate_set.validate_tenant(organization_id)
     if optimization_result.candidate_set_fingerprint != candidate_set.fingerprint:
-        raise DomainError("Decision advisory candidate-set fingerprint does not match optimization result.")
-    if optimization_result.policy_id != policy.id or optimization_result.policy_version != policy.version:
+        raise DomainError(
+            "Decision advisory candidate-set fingerprint does not match optimization result."
+        )
+    if (
+        optimization_result.policy_id != policy.id
+        or optimization_result.policy_version != policy.version
+    ):
         raise DomainError("Decision advisory policy does not match optimization result.")
     if optimization_result.calculation_version != policy.calculation_version:
-        raise DomainError("Decision advisory calculation version does not match optimization result.")
+        raise DomainError(
+            "Decision advisory calculation version does not match optimization result."
+        )
 
     candidates_by_id = {item.id: item for item in candidate_set.candidates}
     ranked_ids = {item.candidate_id for item in optimization_result.ranked}
