@@ -83,8 +83,11 @@ class Transformation:
             raise DomainError("Transformation yield bounds must satisfy min <= target <= max.")
         if not self.provenance:
             raise DomainError("Transformation provenance is required.")
-        for name, value in (("created_at", self.created_at), ("updated_at", self.updated_at)):
-            if value.tzinfo is None or value.utcoffset() is None:
+        for name, timestamp in (
+            ("created_at", self.created_at),
+            ("updated_at", self.updated_at),
+        ):
+            if timestamp.tzinfo is None or timestamp.utcoffset() is None:
                 raise DomainError(f"Transformation {name} must include a timezone.")
         object.__setattr__(self, "created_at", self.created_at.astimezone(UTC))
         object.__setattr__(self, "updated_at", self.updated_at.astimezone(UTC))
