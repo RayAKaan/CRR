@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -90,20 +91,23 @@ def test_inactive_or_expired_model_cannot_be_evaluated():
 
 
 def test_mismatched_component_currency_is_blocked():
+    wrong_currency = EconomicComponent(
+        EconomicPerspective.SUPPLIER,
+        EconomicComponentKind.VALUE,
+        "wrong currency",
+        Money(Decimal("1.00"), "USD"),
+        "test",
+    )
     with pytest.raises(DomainError):
-        EconomicModel(
-            **{**make_model().__dict__, "components": (
-                EconomicComponent(
-                    EconomicPerspective.SUPPLIER,
-                    EconomicComponentKind.VALUE,
-                    "wrong currency",
-                    Money(Decimal("1.00"), "USD"),
-                    "test",
-                ),
-            )}
-        )
+        EconomicModel.__call__ if False else replace(make_model(), components=(wrong_currency,))
 
 
 def test_negative_component_amount_is_blocked():
     with pytest.raises(DomainError):
-        Money(Decimal("-1.00"), "SAR")
+        EconomicComponent(
+            EconomicPerspective.SUPPLIER,
+            EconomicComponentKind.COST,
+            "invalid",
+            Money(Decimal("-1.00"), "SAR"),
+            "test",
+        )
