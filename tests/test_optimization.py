@@ -11,12 +11,17 @@ from crr.domain.optimization import (
     fingerprint_candidates,
     optimize_candidate_set,
 )
-from crr.domain.routing import RouteCandidate, RouteLeg, RouteStatus
+from crr.domain.routing import Rejection, RouteCandidate, RouteLeg, RouteStatus
 
 NOW = datetime(2026, 10, 18, 12, tzinfo=UTC)
 
 
 def candidate(candidate_id: str, status: RouteStatus = RouteStatus.FEASIBLE) -> RouteCandidate:
+    rejections = (
+        (Rejection("TEST_INFEASIBLE", candidate_id, "Test rejection"),)
+        if status is RouteStatus.INFEASIBLE
+        else ()
+    )
     return RouteCandidate(
         id=candidate_id,
         organization_id="org_a",
@@ -24,7 +29,7 @@ def candidate(candidate_id: str, status: RouteStatus = RouteStatus.FEASIBLE) -> 
         target_demand_id="dem_a",
         legs=(RouteLeg("DIRECT", "rst_a", "A", "A"),),
         status=status,
-        rejections=(),
+        rejections=rejections,
         source_version=1,
         target_version=1,
         evaluated_at=NOW,
