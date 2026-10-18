@@ -2,11 +2,11 @@
 
 __version__ = "0.1.0"
 
-# The existing application mounts the Demand router. Keep the Transformation
-# router on that same aggregate without modifying the established API module.
-from crr.demand_api import router as _demand_router
+# Register the Transformation router on the existing Capability router before
+# the Demand API aggregates Capability routes into its application router.
+from crr.capability_api import router as _capability_router
 from crr.transformation_api import router as _transformation_router
 
-_demand_router.include_router(_transformation_router)
+_capability_router.include_router(_transformation_router)
 
-del _demand_router, _transformation_router
+del _capability_router, _transformation_router
