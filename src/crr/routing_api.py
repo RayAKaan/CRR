@@ -15,6 +15,10 @@ from crr.capability_model import Capability
 from crr.demand_model import Demand
 from crr.domain.capability import Capability as DomainCapability
 from crr.domain.capability import CapabilityStatus
+from crr.domain.decision_support import (
+    DecisionAdvisory,
+    build_decision_advisory,
+)
 from crr.domain.demand import Demand as DomainDemand
 from crr.domain.demand import DemandStatus
 from crr.domain.errors import DomainError
@@ -271,6 +275,32 @@ def _optimization_data(result: OptimizationResult) -> dict[str, Any]:
     }
 
 
+def _decision_data(advisory: DecisionAdvisory) -> dict[str, Any]:
+    return {
+        "mode": advisory.mode.value,
+        "candidate_set_fingerprint": advisory.candidate_set_fingerprint,
+        "policy": {
+            "id": advisory.policy_id,
+            "version": advisory.policy_version,
+            "calculation_version": advisory.calculation_version,
+        },
+        "leading_candidate_id": advisory.leading_candidate_id,
+        "alternatives": [
+            {
+                "candidate_id": item.candidate_id,
+                "rank": item.rank,
+                "score": str(item.score),
+                "components": {name: str(value) for name, value in item.components},
+            }
+            for item in advisory.alternatives
+        ],
+        "excluded_candidate_ids": list(advisory.excluded_candidate_ids),
+        "rationale": list(advisory.rationale),
+        "human_review_required": advisory.human_review_required,
+        "provenance": advisory.provenance,
+    }
+
+
 @router.post("/v1/routes/compute")
 def compute_routes(
     body: RoutingComputeInput,
@@ -381,8 +411,11 @@ def compute_routes(
         "computed_at": datetime.now(UTC).isoformat(),
     }
 
+    candidate_set: CandidateSet | None = None
+    policy: OptimizationPolicy | None = None
+    optimization_result: OptimizationResult | None = None
+
     if body.optimization is not None:
-        optimization_result: OptimizationResult | None = None
         try:
             objective = OptimizationObjective(body.optimization.objective)
             policy = OptimizationPolicy(
@@ -431,5 +464,25 @@ def compute_routes(
             organization_id=principal.organization_id,
         )
         response_data["optimization"] = _optimization_data(optimization_result)
+
+    if body.decision_mode is not None:
+        if candidate_set is None or policy is None or optimization_result is None:
+            _fail(
+                request,
+                422,
+                "DECISION_MODE_REQUIRES_OPTIMIZATION",
+                "VALIDATION_FAILURE",
+                "decision_mode requires an optimization request.",
+            )
+        try:
+            advisory = build_decision_advisory(
+                candidate_set=candidate_set,
+                policy=policy,
+                optimization_result=optimization_result,
+                organization_id=principal.organization_id,
+            )
+        except DomainError as exc:
+            _fail(request, 409, exc.code, "DOMAIN_CONFLICT", str(exc))
+        response_data["decision_support"] = _decision_data(advisory)
 
     return _envelope(request, response_data)
