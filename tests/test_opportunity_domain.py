@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -56,6 +57,4 @@ def test_terminal_opportunity_cannot_transition():
 
 def test_opportunity_rejects_invalid_validity_window():
     with pytest.raises(DomainError):
-        make_opportunity().__class__(
-            **{**make_opportunity().__dict__, "valid_until": NOW}
-        )
+        replace(make_opportunity(), valid_until=NOW)
