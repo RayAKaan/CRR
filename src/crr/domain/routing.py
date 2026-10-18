@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -85,26 +84,44 @@ def evaluate_direct_route(
     unit_registry: UnitRegistry,
     evaluated_at: datetime,
 ) -> RouteCandidate:
-    """Evaluate the zero-transformation direct route using only canonical facts."""
+    """Evaluate a zero-transformation direct route using canonical facts."""
     if source_organization_id != demand_organization_id:
         raise TenantBoundaryError("Routing source and target must share an organization.")
     rejections: list[Rejection] = []
     if not demand_active:
-        rejections.append(_reject("DEMAND_EXPIRED", demand_id, "Demand is not ACTIVE."))
+        rejections.append(
+            _reject("DEMAND_EXPIRED", demand_id, "Demand is not ACTIVE.")
+        )
     if source_quantity.value <= 0:
-        rejections.append(_reject("INSUFFICIENT_QUANTITY", source_id, "Zero quantity is not routing supply."))
+        rejections.append(
+            _reject(
+                "INSUFFICIENT_QUANTITY",
+                source_id,
+                "Zero quantity is not routing supply.",
+            )
+        )
     if source_state_type != demand_state_type:
-        rejections.append(_reject("STATE_MISMATCH", demand_id, "Source state does not satisfy demand state."))
+        rejections.append(
+            _reject(
+                "STATE_MISMATCH",
+                demand_id,
+                "Source state does not satisfy demand state.",
+            )
+        )
     try:
         converted_min = unit_registry.convert(demand_min, source_quantity.unit)
-        converted_max = unit_registry.convert(demand_max, source_quantity.unit)
+        unit_registry.convert(demand_max, source_quantity.unit)
     except DomainError as exc:
         rejections.append(_reject("UNIT_INCOMPATIBLE", demand_id, str(exc)))
     else:
         if source_quantity.value < converted_min.value:
-            rejections.append(_reject("INSUFFICIENT_QUANTITY", source_id, "Source quantity is below demand minimum."))
-        if source_quantity.value > converted_max.value:
-            rejections.append(_reject("QUANTITY_ABOVE_MAX", demand_id, "Source quantity exceeds demand maximum."))
+            rejections.append(
+                _reject(
+                    "INSUFFICIENT_QUANTITY",
+                    source_id,
+                    "Source quantity is below demand minimum.",
+                )
+            )
     status = RouteStatus.INFEASIBLE if rejections else RouteStatus.FEASIBLE
     return RouteCandidate(
         id=f"route_{source_id}_{demand_id}",
