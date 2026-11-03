@@ -7,7 +7,7 @@ It records commercial commitment only; it is not an execution or verification re
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
