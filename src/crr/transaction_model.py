@@ -33,6 +33,10 @@ class Transaction(Base):
             ["agreements.organization_id", "agreements.id"],
         ),
         ForeignKeyConstraint(
+            ["organization_id", "opportunity_id"],
+            ["opportunities.organization_id", "opportunities.id"],
+        ),
+        ForeignKeyConstraint(
             ["organization_id", "resource_id"],
             ["resources.organization_id", "resources.id"],
         ),
@@ -58,6 +62,8 @@ class Transaction(Base):
     id: Mapped[str] = mapped_column(String(80), primary_key=True)
     organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False)
     agreement_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    opportunity_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    route_candidate_id: Mapped[str] = mapped_column(String(120), nullable=False)
     resource_id: Mapped[str] = mapped_column(String(80), nullable=False)
     resource_state_id: Mapped[str] = mapped_column(String(80), nullable=False)
     resource_version: Mapped[int] = mapped_column(Integer, nullable=False)
