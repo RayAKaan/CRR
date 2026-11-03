@@ -125,15 +125,38 @@ class Agreement:
             raise TenantBoundaryError("Agreement belongs to another organization.")
 
     def cancel(self, *, actor_id: str, at: datetime) -> Agreement:
+        return self._transition(AgreementStatus.CANCELLED, actor_id=actor_id, at=at)
+
+    def expire(self, *, at: datetime) -> Agreement:
         if self.status is not AgreementStatus.ACTIVE:
-            raise DomainError("Only an active Agreement can be cancelled.")
-        if actor_id not in {self.proposer_actor_id, self.recipient_actor_id}:
-            raise DomainError("Agreement cancellation requires a participating actor.")
+            raise DomainError("Only an active Agreement can expire.")
         if at.tzinfo is None or at.utcoffset() is None:
-            raise DomainError("Agreement cancellation time must be timezone-aware.")
+            raise DomainError("Agreement expiry time must be timezone-aware.")
+        if at < self.accepted_at:
+            raise DomainError("Agreement cannot expire before acceptance.")
         return replace(
             self,
-            status=AgreementStatus.CANCELLED,
+            status=AgreementStatus.EXPIRED,
             version=self.version + 1,
             updated_at=at,
         )
+
+    def terminate(self, *, actor_id: str, at: datetime) -> Agreement:
+        return self._transition(AgreementStatus.TERMINATED, actor_id=actor_id, at=at)
+
+    def _transition(
+        self,
+        status: AgreementStatus,
+        *,
+        actor_id: str,
+        at: datetime,
+    ) -> Agreement:
+        if self.status is not AgreementStatus.ACTIVE:
+            raise DomainError("Only an active Agreement can change lifecycle state.")
+        if actor_id not in {self.proposer_actor_id, self.recipient_actor_id}:
+            raise DomainError("Agreement lifecycle changes require a participating actor.")
+        if at.tzinfo is None or at.utcoffset() is None:
+            raise DomainError("Agreement lifecycle timestamps must be timezone-aware.")
+        if at < self.accepted_at:
+            raise DomainError("Agreement cannot change lifecycle state before acceptance.")
+        return replace(self, status=status, version=self.version + 1, updated_at=at)
