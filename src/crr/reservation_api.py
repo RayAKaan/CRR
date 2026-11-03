@@ -234,7 +234,7 @@ def _agreement_quantity(agreement: Agreement, request: Request) -> tuple[Quantit
         )
         valid_from = datetime.fromisoformat(terms["valid_from"])
         valid_until = datetime.fromisoformat(terms["valid_until"])
-    except (KeyError, TypeError, ValueError) as exc:
+    except (KeyError, TypeError, ValueError, DomainError) as exc:
         _fail(
             request,
             409,
@@ -388,7 +388,7 @@ def create_reservation(
         body.unit_registry_version,
     )
     state_quantity = Quantity(state.quantity_value, state.unit, state.unit_registry_version)
-    existing = session.scalars(
+    existing_for_state = session.scalars(
         select(ReservationRecord).where(
             ReservationRecord.organization_id == principal.organization_id,
             ReservationRecord.resource_state_id == state.id,
@@ -397,19 +397,36 @@ def create_reservation(
             ReservationRecord.created_at <= now,
         )
     ).all()
-    active = [_domain(item) for item in existing]
+    existing_for_agreement = session.scalars(
+        select(ReservationRecord).where(
+            ReservationRecord.organization_id == principal.organization_id,
+            ReservationRecord.agreement_id == agreement.id,
+            ReservationRecord.status == ReservationStatus.ACTIVE.value,
+            ReservationRecord.expires_at > now,
+            ReservationRecord.created_at <= now,
+        )
+    ).all()
+    active_for_state = [_domain(item) for item in existing_for_state]
+    active_for_agreement = [_domain(item) for item in existing_for_agreement]
     try:
         already_reserved = active_reserved_quantity(
-            active,
+            active_for_state,
             now=now,
             unit=state.unit,
             unit_registry_version=state.unit_registry_version,
+        )
+        already_reserved_for_agreement = active_reserved_quantity(
+            active_for_agreement,
+            now=now,
+            unit=agreement_quantity.unit,
+            unit_registry_version=agreement_quantity.unit_registry_version,
         )
         validate_reservation_capacity(
             requested=requested,
             agreement_quantity=agreement_quantity,
             state_quantity=state_quantity,
             already_reserved=already_reserved,
+            already_reserved_for_agreement=already_reserved_for_agreement,
         )
         domain = DomainReservation(
             id=f"rsv_{uuid4().hex}",
