@@ -139,11 +139,11 @@ class ExecutionCorrectionInput(BaseModel):
 class ExecutionLifecycleInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    status: str = Field(pattern=r"^(CLOSED|CANCELLED)$")
     reason: str = Field(min_length=1, max_length=2000)
 
 
-class ExecutionLifecycleReasonInput(BaseModel):
+class ExecutionLifecycleTransitionInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    status: str = Field(pattern=r"^(CLOSED|CANCELLED)$")
     reason: str = Field(min_length=1, max_length=2000)
