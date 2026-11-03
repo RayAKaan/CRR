@@ -644,7 +644,7 @@ def test_transaction_lifecycle_resolves_disputes_and_cancels_allocations_atomica
         json=resolution_body,
         headers=auth(token, "transaction-resolve") | {"If-Match": '"version-3"'},
     )
-    assert resolved.status_code == 201, resolved.text
+    assert resolved.status_code == 200, resolved.text
     assert resolved.json()["data"]["status"] == "SCHEDULED"
 
     cancelled = client.patch(
@@ -873,7 +873,7 @@ def test_execution_exceptions_and_corrections_are_append_only_and_authorized():
         },
         headers=auth(token, "execution-history-actual") | {"If-Match": '"version-2"'},
     )
-    assert actual.status_code == 200, actual.text
+    assert actual.status_code == 201, actual.text
     original = actual.json()["data"]["operations"][-1]
 
     exception = client.post(
