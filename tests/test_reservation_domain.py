@@ -120,7 +120,9 @@ def test_active_allocation_ignores_released_and_expired_reservations():
     expired = make_reservation(
         id="rsv_3",
         quantity=quantity("7"),
-        expires_at=NOW,
+        created_at=NOW - timedelta(days=2),
+        updated_at=NOW - timedelta(days=2),
+        expires_at=NOW - timedelta(days=1),
     )
     total = active_reserved_quantity(
         [active, released, expired],
