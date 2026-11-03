@@ -92,7 +92,6 @@ def test_transaction_enforces_tenant_boundary():
         make_transaction().validate_tenant("org_other")
 
 
-
 def make_reservation(
     reservation_id: str,
     quantity: str,
