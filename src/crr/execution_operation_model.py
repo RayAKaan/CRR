@@ -25,11 +25,27 @@ class ExecutionOperation(Base):
     __tablename__ = "execution_operations"
     __table_args__ = (
         UniqueConstraint("organization_id", "id"),
+        UniqueConstraint("organization_id", "execution_id", "id"),
         UniqueConstraint("organization_id", "execution_id", "sequence"),
         CheckConstraint("sequence >= 1", name="ck_execution_operations_sequence_positive"),
         CheckConstraint(
+            "operation_type IN ('PICKUP', 'SHIPMENT', 'RECEIPT', 'PROCESSING', 'OUTPUT', 'DELIVERY', 'ACCEPTANCE')",
+            name="ck_execution_operations_type",
+        ),
+        CheckConstraint(
             "mode IN ('PLANNED', 'REPORTED')",
             name="ck_execution_operations_mode",
+        ),
+        CheckConstraint(
+            "(quantity_value IS NULL AND quantity_unit IS NULL AND "
+            "unit_registry_version IS NULL) OR (quantity_value > 0 AND "
+            "quantity_unit IS NOT NULL AND unit_registry_version IS NOT NULL)",
+            name="ck_execution_operations_quantity_consistency",
+        ),
+        CheckConstraint(
+            "(supersedes_operation_id IS NULL AND correction_reason IS NULL) OR "
+            "(supersedes_operation_id IS NOT NULL AND correction_reason IS NOT NULL)",
+            name="ck_execution_operations_correction_consistency",
         ),
         CheckConstraint(
             "(mode = 'PLANNED' AND planned_for IS NOT NULL AND occurred_at IS NULL) OR "
@@ -45,6 +61,11 @@ class ExecutionOperation(Base):
             ["organization_id", "actor_id"],
             ["actors.organization_id", "actors.id"],
             name="fk_execution_operations_org_actor",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "location_id"],
+            ["locations.organization_id", "locations.id"],
+            name="fk_execution_operations_org_location",
         ),
         ForeignKeyConstraint(
             ["organization_id", "execution_id", "planned_operation_id"],
@@ -91,6 +112,7 @@ class ExecutionException(Base):
     __tablename__ = "execution_exceptions"
     __table_args__ = (
         UniqueConstraint("organization_id", "id"),
+        UniqueConstraint("organization_id", "execution_id", "id"),
         ForeignKeyConstraint(
             ["organization_id", "execution_id"],
             ["executions.organization_id", "executions.id"],
