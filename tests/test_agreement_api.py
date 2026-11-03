@@ -191,3 +191,35 @@ def test_agreement_lifecycle_requires_etag_and_is_versioned():
     )
     assert response.status_code == 200
     assert response.json()["data"]["status"] == "CANCELLED"
+
+
+def test_agreement_expiry_requires_dedicated_scope():
+    client, token, engine = client_fixture()
+    created = client.post(
+        "/v1/agreements",
+        json={"offer_id": "off_a"},
+        headers=headers(token, "agreement-create-for-expiry"),
+    )
+    assert created.status_code == 201, created.text
+    agreement_id = created.json()["data"]["id"]
+    denied = client.patch(
+        f"/v1/agreements/{agreement_id}",
+        json={"status": "EXPIRED"},
+        headers=headers(token, "agreement-expiry-denied")
+        | {"If-Match": '"version-1"'},
+    )
+    assert denied.status_code == 403
+
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    with factory.begin() as session:
+        key = session.scalar(select(APIKey).where(APIKey.id == "key_buyer"))
+        key.scopes = ["agreements:read", "agreements:write", "agreements:expire"]
+
+    expired = client.patch(
+        f"/v1/agreements/{agreement_id}",
+        json={"status": "EXPIRED"},
+        headers=headers(token, "agreement-expiry")
+        | {"If-Match": '"version-1"'},
+    )
+    assert expired.status_code == 200
+    assert expired.json()["data"]["status"] == "EXPIRED"
