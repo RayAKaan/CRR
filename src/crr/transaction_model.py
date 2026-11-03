@@ -80,6 +80,7 @@ class Transaction(Base):
     created_by: Mapped[str] = mapped_column(String(80), nullable=False)
     created_at: Mapped[datetime] = mapped_column(AwareDateTime(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(AwareDateTime(), nullable=False)
+    scheduled_for: Mapped[datetime | None] = mapped_column(AwareDateTime())
     provenance: Mapped[dict[str, str]] = mapped_column(JSON, nullable=False)
 
 
