@@ -205,8 +205,7 @@ def test_agreement_expiry_requires_dedicated_scope():
     denied = client.patch(
         f"/v1/agreements/{agreement_id}",
         json={"status": "EXPIRED"},
-        headers=headers(token, "agreement-expiry-denied")
-        | {"If-Match": '"version-1"'},
+        headers=headers(token, "agreement-expiry-denied") | {"If-Match": '"version-1"'},
     )
     assert denied.status_code == 403
 
@@ -218,8 +217,7 @@ def test_agreement_expiry_requires_dedicated_scope():
     expired = client.patch(
         f"/v1/agreements/{agreement_id}",
         json={"status": "EXPIRED"},
-        headers=headers(token, "agreement-expiry")
-        | {"If-Match": '"version-1"'},
+        headers=headers(token, "agreement-expiry") | {"If-Match": '"version-1"'},
     )
     assert expired.status_code == 200
     assert expired.json()["data"]["status"] == "EXPIRED"
