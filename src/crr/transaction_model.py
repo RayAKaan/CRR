@@ -12,7 +12,6 @@ from sqlalchemy import (
     Index,
     Integer,
     JSON,
-    Numeric,
     PrimaryKeyConstraint,
     String,
     Table,
@@ -67,7 +66,7 @@ class Transaction(Base):
     quantity_value: Mapped[Decimal] = mapped_column(ExactDecimal(), nullable=False)
     quantity_unit: Mapped[str] = mapped_column(String(80), nullable=False)
     unit_registry_version: Mapped[str] = mapped_column(String(80), nullable=False)
-    price: Mapped[Decimal] = mapped_column(Numeric(), nullable=False)
+    price: Mapped[Decimal] = mapped_column(ExactDecimal(), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     terms_snapshot: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
