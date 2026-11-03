@@ -19,7 +19,6 @@ from crr.database import SessionLocal
 from crr.domain import Quantity, TransitionKind, transition_state
 from crr.domain import ResourceState as DomainState
 from crr.domain.errors import DomainError
-from crr.reservation_model import Reservation as ReservationRecord
 from crr.models import (
     Actor,
     APIKey,
@@ -31,6 +30,7 @@ from crr.models import (
     ResourceState,
     StateTransition,
 )
+from crr.reservation_model import Reservation as ReservationRecord
 from crr.schemas import (
     ActorCreate,
     LocationCreate,
