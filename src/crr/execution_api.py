@@ -1279,4 +1279,3 @@ def transition_execution_lifecycle(
         {"reason": body.reason, "actor_id": principal.actor_id},
     )
     return _commit(session, request, response, item)
-
