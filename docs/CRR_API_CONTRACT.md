@@ -1104,6 +1104,6 @@ The reference implementation exposes:
 
 - `POST /v1/agreements` with only an `offer_id`; commercial terms are sourced from the accepted Offer, never supplied by the client.
 - `GET /v1/agreements` and `GET /v1/agreements/{id}`, tenant-scoped.
-- `PATCH /v1/agreements/{id}` for explicit cancellation or termination, requiring `If-Match` and `Idempotency-Key`.
+- `PATCH /v1/agreements/{id}` for explicit cancellation or termination by a participating actor, or expiry by a principal with `agreements:expire`; all mutations require `If-Match` and `Idempotency-Key`.
 
 Agreement creation requires an accepted Offer and a matching outbox event attributed to the Offer recipient. It snapshots the exact accepted terms. Creation and lifecycle changes emit transactional outbox events. The Agreement API does not reserve resources, create Transactions, initiate payments, or record execution.
