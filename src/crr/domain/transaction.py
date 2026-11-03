@@ -17,7 +17,7 @@ from crr.domain.quantity import Quantity
 
 
 class TransactionStatus(StrEnum):
-    COMMITTED = "COMMITTED"
+    AGREED = "AGREED"
     DISPUTED = "DISPUTED"
     CANCELLED = "CANCELLED"
 
@@ -29,6 +29,8 @@ class Transaction:
     id: str
     organization_id: str
     agreement_id: str
+    opportunity_id: str
+    route_candidate_id: str
     resource_id: str
     resource_state_id: str
     resource_version: int
@@ -51,6 +53,8 @@ class Transaction:
             self.id,
             self.organization_id,
             self.agreement_id,
+            self.opportunity_id,
+            self.route_candidate_id,
             self.resource_id,
             self.resource_state_id,
             self.proposer_actor_id,
