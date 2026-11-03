@@ -165,6 +165,17 @@ def test_transaction_schedule_dispute_resolve_and_cancel_are_versioned():
 
 def test_transaction_lifecycle_rejects_invalid_actor_time_and_missing_reason():
     transaction = make_transaction()
+    scheduled = transaction.schedule(
+        actor_id="act_buyer",
+        at=NOW + timedelta(minutes=2),
+        scheduled_for=NOW + timedelta(days=1),
+    )
+    with pytest.raises(DomainError):
+        scheduled.dispute(
+            actor_id="act_buyer",
+            at=NOW + timedelta(minutes=1),
+            reason="Out-of-order dispute",
+        )
     with pytest.raises(DomainError):
         transaction.schedule(
             actor_id="act_outsider",
