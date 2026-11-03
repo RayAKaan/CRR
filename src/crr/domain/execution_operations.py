@@ -175,16 +175,20 @@ def validate_reported_operation(
         ExecutionOperationType.RECEIPT: frozenset({ExecutionOperationType.SHIPMENT}),
         ExecutionOperationType.PROCESSING: frozenset({ExecutionOperationType.RECEIPT}),
         ExecutionOperationType.OUTPUT: frozenset({ExecutionOperationType.PROCESSING}),
-        ExecutionOperationType.DELIVERY: frozenset({
-            ExecutionOperationType.PICKUP,
-            ExecutionOperationType.SHIPMENT,
-            ExecutionOperationType.RECEIPT,
-            ExecutionOperationType.OUTPUT,
-        }),
-        ExecutionOperationType.ACCEPTANCE: frozenset({
-            ExecutionOperationType.RECEIPT,
-            ExecutionOperationType.DELIVERY,
-        }),
+        ExecutionOperationType.DELIVERY: frozenset(
+            {
+                ExecutionOperationType.PICKUP,
+                ExecutionOperationType.SHIPMENT,
+                ExecutionOperationType.RECEIPT,
+                ExecutionOperationType.OUTPUT,
+            }
+        ),
+        ExecutionOperationType.ACCEPTANCE: frozenset(
+            {
+                ExecutionOperationType.RECEIPT,
+                ExecutionOperationType.DELIVERY,
+            }
+        ),
     }
     required = dependencies[reported_operation.operation_type]
     if required and not (required & reported_types):
