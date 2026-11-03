@@ -1003,3 +1003,94 @@ def test_execution_create_requires_scheduled_transaction_and_scope():
     )
     assert unscheduled.status_code == 409
     assert unscheduled.json()["error"]["code"] == "TRANSACTION_NOT_SCHEDULED"
+
+
+def test_execution_closure_requires_actual_operations_and_resolved_exceptions():
+    client, token, _ = reservation_fixture()
+    transaction_id = create_scheduled_transaction(client, token, "execution-close")
+    created = client.post(
+        "/v1/executions",
+        json={"transaction_id": transaction_id},
+        headers=auth(token, "execution-close-create"),
+    )
+    execution_id = created.json()["data"]["id"]
+    empty_close = client.post(
+        f"/v1/executions/{execution_id}/lifecycle",
+        json={"status": "CLOSED", "reason": "No physical operation occurred"},
+        headers=auth(token, "execution-close-empty") | {"If-Match": '"version-1"'},
+    )
+    assert empty_close.status_code == 409
+    assert empty_close.json()["error"]["code"] == "EXECUTION_HAS_NO_REPORTED_OPERATIONS"
+
+    planned = client.post(
+        f"/v1/executions/{execution_id}/operations/planned",
+        json={
+            "operation_type": "PICKUP",
+            "planned_for": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
+        },
+        headers=auth(token, "execution-close-plan") | {"If-Match": '"version-1"'},
+    )
+    plan_id = planned.json()["data"]["operations"][0]["id"]
+    actual = client.post(
+        f"/v1/executions/{execution_id}/operations/reported",
+        json={
+            "planned_operation_id": plan_id,
+            "occurred_at": datetime.now(UTC).isoformat(),
+        },
+        headers=auth(token, "execution-close-report") | {"If-Match": '"version-2"'},
+    )
+    assert actual.status_code == 201, actual.text
+    exception = client.post(
+        f"/v1/executions/{execution_id}/exceptions",
+        json={"code": "SCALE_DISPUTE", "reason": "Quantity requires reconciliation"},
+        headers=auth(token, "execution-close-exception") | {"If-Match": '"version-3"'},
+    )
+    assert exception.status_code == 201, exception.text
+    blocked = client.post(
+        f"/v1/executions/{execution_id}/lifecycle",
+        json={"status": "CLOSED", "reason": "Attempted premature closure"},
+        headers=auth(token, "execution-close-blocked") | {"If-Match": '"version-4"'},
+    )
+    assert blocked.status_code == 409
+    assert blocked.json()["error"]["code"] == "EXECUTION_HAS_UNRESOLVED_EXCEPTIONS"
+
+    exception_id = exception.json()["data"]["exceptions"][0]["id"]
+    resolved = client.post(
+        f"/v1/executions/{execution_id}/exceptions/{exception_id}/resolution",
+        json={"reason": "Scale ticket reconciled by operations lead"},
+        headers=auth(token, "execution-close-resolve") | {"If-Match": '"version-4"'},
+    )
+    assert resolved.status_code == 201
+    closed = client.post(
+        f"/v1/executions/{execution_id}/lifecycle",
+        json={"status": "CLOSED", "reason": "Operational record reconciled and closed"},
+        headers=auth(token, "execution-close-final") | {"If-Match": '"version-5"'},
+    )
+    assert closed.status_code == 200, closed.text
+    assert closed.json()["data"]["status"] == "CLOSED"
+
+
+def test_execution_cancellation_is_limited_to_pre_execution_and_idempotent():
+    client, token, _ = reservation_fixture()
+    transaction_id = create_scheduled_transaction(client, token, "execution-cancel")
+    created = client.post(
+        "/v1/executions",
+        json={"transaction_id": transaction_id},
+        headers=auth(token, "execution-cancel-create"),
+    )
+    execution_id = created.json()["data"]["id"]
+    body = {"status": "CANCELLED", "reason": "Transaction withdrawn before physical work"}
+    headers = auth(token, "execution-cancel-final") | {"If-Match": '"version-1"'}
+    cancelled = client.post(
+        f"/v1/executions/{execution_id}/lifecycle",
+        json=body,
+        headers=headers,
+    )
+    replay = client.post(
+        f"/v1/executions/{execution_id}/lifecycle",
+        json=body,
+        headers=headers,
+    )
+    assert cancelled.status_code == 200, cancelled.text
+    assert replay.status_code == 200
+    assert replay.json()["data"]["status"] == "CANCELLED"
