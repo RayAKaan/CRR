@@ -890,7 +890,7 @@ def test_execution_exceptions_and_corrections_are_append_only_and_authorized():
         json={"reason": "Replacement vehicle assigned"},
         headers=auth(token, "execution-history-resolution") | {"If-Match": '"version-4"'},
     )
-    assert resolved.status_code == 200, resolved.text
+    assert resolved.status_code == 201, resolved.text
     assert resolved.json()["data"]["status"] == "IN_PROGRESS"
 
     correction = client.post(
