@@ -193,8 +193,8 @@ class Transaction:
     def _require_transition_time(self, at: datetime) -> None:
         if at.tzinfo is None or at.utcoffset() is None:
             raise DomainError("Transaction lifecycle timestamps must be timezone-aware.")
-        if at < self.created_at:
-            raise DomainError("Transaction cannot change lifecycle state before creation.")
+        if at < self.updated_at:
+            raise DomainError("Transaction transition time cannot precede its previous update.")
 
     def _changed(
         self,
