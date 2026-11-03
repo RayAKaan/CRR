@@ -1112,8 +1112,8 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
 
     from crr.agreement_api import router as agreement_router
     from crr.demand_api import router as demand_router
-    from crr.reservation_api import router as reservation_router
     from crr.execution_api import router as execution_router
+    from crr.reservation_api import router as reservation_router
     from crr.transaction_api import router as transaction_router
 
     app.include_router(demand_router)
