@@ -55,6 +55,7 @@ Decision
 Opportunity
 Offer
 Agreement
+Reservation
 Transaction
 Execution
 Evidence
@@ -109,7 +110,8 @@ Offer
  └─ proposes → Opportunity terms
 
 Agreement
- └─ records → Accepted terms
+ ├─ records → Accepted terms
+ └─ authorizes → Reservation
 
 Transaction
  ├─ executes → Opportunity / Agreement
@@ -1086,3 +1088,12 @@ The domain model is the bridge between protocol semantics and implementation.
 > **CRR models the physical economy as evolving resource states connected by capabilities, transformations, routes, commercial commitments, execution records, evidence, and verified outcomes.**
 
 The domain model must preserve the difference between identity, physical state, possibility, plan, agreement, execution, claim, and verified reality.
+
+
+# Reservation
+
+A Reservation is a temporary allocation hold against a specific immutable ResourceState version under an active Agreement.
+
+It records the exact quantity, canonical unit and unit-registry version, Resource and ResourceState identity/version, expiry, actor, lifecycle status, and provenance. The sum of active, unexpired reservations plus a proposed reservation must not exceed the ResourceState quantity or the Agreement's accepted quantity.
+
+A Reservation does not mutate ResourceState, change ownership or custody, create a Transaction, or prove dispatch, delivery, processing, or execution. Released and expired reservations cease consuming allocatable quantity while remaining in immutable audit history.

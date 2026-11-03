@@ -36,6 +36,7 @@ def test_initial_migration_builds_schema_and_protects_physical_history(tmp_path:
         "resource_states",
         "state_transitions",
         "outbox_events",
+        "reservations",
     } <= _tables(engine)
 
     with engine.connect() as connection:
@@ -119,6 +120,7 @@ def test_initial_migration_builds_schema_and_protects_physical_history(tmp_path:
         "resource_states",
         "state_transitions",
         "outbox_events",
+        "reservations",
     } & _tables(engine)
 
     command.upgrade(config, "head")
@@ -130,6 +132,7 @@ def test_initial_migration_builds_schema_and_protects_physical_history(tmp_path:
         "resource_states",
         "state_transitions",
         "outbox_events",
+        "reservations",
     } <= _tables(engine)
 
     with engine.connect() as connection:
