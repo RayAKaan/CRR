@@ -15,15 +15,15 @@ from sqlalchemy.orm import Session
 from crr.agreement_model import Agreement
 from crr.domain.errors import DomainError
 from crr.domain.quantity import Quantity, exact_decimal
+from crr.domain.reservation import Reservation as DomainReservation
 from crr.domain.reservation import (
-    Reservation as DomainReservation,
     ReservationStatus,
     active_reserved_quantity,
     validate_reservation_capacity,
 )
 from crr.models import IdempotencyRecord, OutboxEvent, Resource, ResourceState
-from crr.opportunity_model import Opportunity
 from crr.offer_model import Offer
+from crr.opportunity_model import Opportunity
 from crr.reservation_model import Reservation as ReservationRecord
 from crr.reservation_schemas import ReservationCreate, ReservationLifecycleInput
 
@@ -223,7 +223,10 @@ def _replay(
     return _envelope(request, _data(item))
 
 
-def _agreement_quantity(agreement: Agreement, request: Request) -> tuple[Quantity, datetime, datetime]:
+def _agreement_quantity(
+    agreement: Agreement,
+    request: Request,
+) -> tuple[Quantity, datetime, datetime]:
     try:
         terms = json.loads(agreement.terms_snapshot)
         quantity = terms["quantity"]
