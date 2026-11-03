@@ -70,6 +70,9 @@ def reservation_fixture(state_quantity: str = "20.000"):
                     "reservations:write",
                     "reservations:expire",
                     "resources:write",
+                    "transactions:read",
+                    "transactions:write",
+                    "transactions:resolve",
                 ],
                 revoked=False,
                 created_at=NOW,
@@ -420,7 +423,10 @@ def test_active_transaction_locks_linked_reservation_from_release():
                 id="txn_a",
                 organization_id="org_a",
                 agreement_id="agr_a",
+                offer_id="off_a",
+                offer_version=2,
                 opportunity_id="opp_a",
+                opportunity_version=1,
                 route_candidate_id="route_a",
                 resource_id="res_a",
                 resource_state_id="rst_a",
@@ -455,3 +461,213 @@ def test_active_transaction_locks_linked_reservation_from_release():
     )
     assert blocked.status_code == 409
     assert blocked.json()["error"]["code"] == "RESERVATION_BOUND_TO_TRANSACTION"
+
+
+
+def create_full_transaction_reservations(client, token):
+    first = client.post(
+        "/v1/reservations",
+        json=payload("4.000"),
+        headers=auth(token, "transaction-reservation-first"),
+    )
+    second = client.post(
+        "/v1/reservations",
+        json=payload("6.250"),
+        headers=auth(token, "transaction-reservation-second"),
+    )
+    assert first.status_code == 201, first.text
+    assert second.status_code == 201, second.text
+    return [first.json()["data"]["id"], second.json()["data"]["id"]]
+
+
+def test_transaction_creation_is_idempotent_and_links_complete_reservation_set():
+    client, token, engine = reservation_fixture()
+    reservation_ids = create_full_transaction_reservations(client, token)
+    body = {"agreement_id": "agr_a", "reservation_ids": reservation_ids}
+    headers = auth(token, "transaction-create")
+    created = client.post("/v1/transactions", json=body, headers=headers)
+    replay = client.post("/v1/transactions", json=body, headers=headers)
+    assert created.status_code == 201, created.text
+    assert replay.status_code == 200
+    duplicate = client.post(
+        "/v1/transactions",
+        json=body,
+        headers=auth(token, "transaction-create-duplicate"),
+    )
+    assert duplicate.status_code == 409
+    assert duplicate.json()["error"]["code"] == "TRANSACTION_ALREADY_EXISTS"
+    conflicting_replay = client.post(
+        "/v1/transactions",
+        json={"agreement_id": "agr_a", "reservation_ids": [reservation_ids[0]]},
+        headers=headers,
+    )
+    assert conflicting_replay.status_code == 409
+    assert conflicting_replay.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"
+    data = created.json()["data"]
+    assert data["status"] == "AGREED"
+    assert data["quantity"]["value"] == "10.250"
+    assert set(data["reservation_ids"]) == set(reservation_ids)
+    assert data["price"] == "125.50"
+    assert data["offer_version"] == 2
+    assert data["opportunity_version"] == 1
+    detail = client.get(f"/v1/transactions/{data['id']}", headers=auth(token))
+    collection = client.get("/v1/transactions", headers=auth(token))
+    assert detail.status_code == 200
+    assert collection.status_code == 200
+    assert collection.json()["data"][0]["id"] == data["id"]
+    with engine.connect() as connection:
+        transaction = connection.execute(
+            select(Transaction).where(Transaction.id == data["id"])
+        ).one()
+        linked = connection.execute(
+            select(transaction_reservations.c.reservation_id).where(
+                transaction_reservations.c.transaction_id == data["id"]
+            )
+        ).scalars().all()
+        event = connection.execute(
+            select(OutboxEvent).where(OutboxEvent.aggregate_id == data["id"])
+        ).one()
+        state = connection.execute(
+            select(ResourceState).where(ResourceState.id == "rst_a")
+        ).one()
+    assert transaction.status == "AGREED"
+    assert set(linked) == set(reservation_ids)
+    assert event.event_type == "transaction.created"
+    assert event.payload["offer_version"] == 2
+    assert event.payload["opportunity_version"] == 1
+    assert set(event.payload["reservation_ids"]) == set(reservation_ids)
+    assert state.quantity_value == Decimal("20.000")
+
+
+def test_transaction_creation_rejects_incomplete_reservation_coverage():
+    client, token, _ = reservation_fixture()
+    partial = client.post(
+        "/v1/reservations",
+        json=payload("6.000"),
+        headers=auth(token, "transaction-reservation-partial"),
+    )
+    assert partial.status_code == 201, partial.text
+    response = client.post(
+        "/v1/transactions",
+        json={"agreement_id": "agr_a", "reservation_ids": [partial.json()["data"]["id"]]},
+        headers=auth(token, "transaction-incomplete"),
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "DOMAIN_VALIDATION_FAILED"
+
+
+def test_transaction_creation_requires_every_active_reservation():
+    client, token, _ = reservation_fixture()
+    reservation_ids = create_full_transaction_reservations(client, token)
+    response = client.post(
+        "/v1/transactions",
+        json={"agreement_id": "agr_a", "reservation_ids": reservation_ids[:1]},
+        headers=auth(token, "transaction-reservation-subset"),
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "RESERVATION_SET_MISMATCH"
+
+
+def test_transaction_lifecycle_resolves_disputes_and_cancels_allocations_atomically():
+    client, token, engine = reservation_fixture()
+    reservation_ids = create_full_transaction_reservations(client, token)
+    created = client.post(
+        "/v1/transactions",
+        json={"agreement_id": "agr_a", "reservation_ids": reservation_ids},
+        headers=auth(token, "transaction-lifecycle-create"),
+    )
+    assert created.status_code == 201, created.text
+    transaction_id = created.json()["data"]["id"]
+
+    scheduled = client.patch(
+        f"/v1/transactions/{transaction_id}",
+        json={
+            "status": "SCHEDULED",
+            "scheduled_for": (datetime.now(UTC) + timedelta(days=2)).isoformat(),
+        },
+        headers=auth(token, "transaction-schedule") | {"If-Match": '"version-1"'},
+    )
+    assert scheduled.status_code == 200, scheduled.text
+    assert scheduled.json()["data"]["status"] == "SCHEDULED"
+
+    disputed = client.patch(
+        f"/v1/transactions/{transaction_id}",
+        json={"status": "DISPUTED", "reason": "Delivery window requires review"},
+        headers=auth(token, "transaction-dispute") | {"If-Match": '"version-2"'},
+    )
+    assert disputed.status_code == 200, disputed.text
+    assert disputed.json()["data"]["status"] == "DISPUTED"
+
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    with factory.begin() as session:
+        key = session.scalar(select(APIKey).where(APIKey.id == "key_buyer"))
+        key.scopes = [
+            "reservations:read",
+            "reservations:write",
+            "transactions:read",
+            "transactions:write",
+        ]
+    resolution_body = {
+        "status": "SCHEDULED",
+        "scheduled_for": (datetime.now(UTC) + timedelta(days=3)).isoformat(),
+        "resolution_note": "Both participants accepted the revised date",
+    }
+    denied_resolution = client.patch(
+        f"/v1/transactions/{transaction_id}",
+        json=resolution_body,
+        headers=auth(token, "transaction-resolve-denied") | {"If-Match": '"version-3"'},
+    )
+    assert denied_resolution.status_code == 403
+    with factory.begin() as session:
+        key = session.scalar(select(APIKey).where(APIKey.id == "key_buyer"))
+        key.scopes = [
+            "reservations:read",
+            "reservations:write",
+            "transactions:read",
+            "transactions:write",
+            "transactions:resolve",
+        ]
+    resolved = client.patch(
+        f"/v1/transactions/{transaction_id}",
+        json=resolution_body,
+        headers=auth(token, "transaction-resolve") | {"If-Match": '"version-3"'},
+    )
+    assert resolved.status_code == 200, resolved.text
+    assert resolved.json()["data"]["status"] == "SCHEDULED"
+
+    cancelled = client.patch(
+        f"/v1/transactions/{transaction_id}",
+        json={"status": "CANCELLED", "reason": "Mutual cancellation"},
+        headers=auth(token, "transaction-cancel") | {"If-Match": '"version-4"'},
+    )
+    assert cancelled.status_code == 200, cancelled.text
+    assert cancelled.json()["data"]["status"] == "CANCELLED"
+    assert cancelled.json()["data"]["version"] == 5
+
+    with engine.connect() as connection:
+        reservation_statuses = connection.execute(
+            select(Reservation.status).where(Reservation.id.in_(reservation_ids))
+        ).scalars().all()
+        released_events = connection.execute(
+            select(OutboxEvent).where(
+                OutboxEvent.aggregate_type == "Reservation",
+                OutboxEvent.aggregate_id.in_(reservation_ids),
+                OutboxEvent.event_type == "reservation.released",
+            )
+        ).all()
+        transaction_events = connection.execute(
+            select(OutboxEvent).where(
+                OutboxEvent.aggregate_type == "Transaction",
+                OutboxEvent.aggregate_id == transaction_id,
+            )
+        ).all()
+    assert reservation_statuses == ["RELEASED", "RELEASED"]
+    assert len(released_events) == 2
+    assert len(transaction_events) == 5
+    blocked_new_reservation = client.post(
+        "/v1/reservations",
+        json=payload("1.000"),
+        headers=auth(token, "reservation-after-transaction-cancel"),
+    )
+    assert blocked_new_reservation.status_code == 409
+    assert blocked_new_reservation.json()["error"]["code"] == "AGREEMENT_ALREADY_TRANSACTED"

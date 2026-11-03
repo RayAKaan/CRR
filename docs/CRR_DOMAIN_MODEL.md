@@ -598,7 +598,7 @@ Transaction binds an accepted Agreement to the Reservations that allocate the ag
 
 The Phase 5 reference implementation records:
 
-- the source Agreement and Opportunity;
+- the source Agreement, accepted Offer ID/version and Opportunity ID/version;
 - the accepted route candidate;
 - the Resource and immutable ResourceState version;
 - the Agreement's two commercial parties;

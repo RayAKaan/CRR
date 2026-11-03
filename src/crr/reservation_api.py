@@ -380,6 +380,23 @@ def create_reservation(
     if prior:
         return _replay(session, response, request, prior, principal.organization_id)
 
+    existing_transaction = session.scalar(
+        select(Transaction.id)
+        .where(
+            Transaction.organization_id == principal.organization_id,
+            Transaction.agreement_id == agreement.id,
+        )
+        .limit(1)
+    )
+    if existing_transaction is not None:
+        _fail(
+            request,
+            409,
+            "AGREEMENT_ALREADY_TRANSACTED",
+            "DOMAIN_CONFLICT",
+            "An Agreement with a Transaction cannot accept additional Reservations.",
+        )
+
     now = datetime.now(UTC)
     agreement_quantity, valid_from, valid_until = _agreement_quantity(agreement, request)
     if now < valid_from or now >= valid_until:

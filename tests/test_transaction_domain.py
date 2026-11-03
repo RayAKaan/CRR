@@ -20,7 +20,10 @@ def make_transaction(**overrides) -> Transaction:
         "id": "txn_1",
         "organization_id": "org_1",
         "agreement_id": "agr_1",
+        "offer_id": "off_1",
+        "offer_version": 2,
         "opportunity_id": "opp_1",
+        "opportunity_version": 4,
         "route_candidate_id": "route_1",
         "resource_id": "res_1",
         "resource_state_id": "rst_1",
@@ -30,7 +33,10 @@ def make_transaction(**overrides) -> Transaction:
         "quantity": Quantity(Decimal("10.250"), "t", "CRR-UNITS-0.1"),
         "price": Decimal("125.50"),
         "currency": "SAR",
-        "terms_snapshot": '{"quantity":{"value":"10.250","unit":"t"}}',
+        "terms_snapshot": (
+            '{"quantity":{"value":"10.250","unit":"t",'
+            '"unit_registry_version":"CRR-UNITS-0.1"},"price":"125.50","currency":"SAR"}'
+        ),
         "reservation_ids": ("rsv_1", "rsv_2"),
         "status": TransactionStatus.AGREED,
         "version": 1,
@@ -56,6 +62,10 @@ def test_transaction_requires_distinct_parties_and_positive_versions():
         make_transaction(recipient_actor_id="act_seller")
     with pytest.raises(DomainError):
         make_transaction(resource_version=0)
+    with pytest.raises(DomainError):
+        make_transaction(offer_version=0)
+    with pytest.raises(DomainError):
+        make_transaction(opportunity_version=0)
     with pytest.raises(DomainError):
         make_transaction(version=0)
 
@@ -268,3 +278,44 @@ def test_transaction_allocation_rejects_stale_inactive_and_cross_tenant_reservat
             reservations=[make_reservation("rsv_2", "10.250")],
             now=NOW,
         )
+
+
+
+def test_transaction_fields_must_match_immutable_agreement_terms_snapshot():
+    with pytest.raises(DomainError):
+        make_transaction(
+            terms_snapshot=(
+                '{"quantity":{"value":"9.000","unit":"t",'
+                '"unit_registry_version":"CRR-UNITS-0.1"},"price":"125.50","currency":"SAR"}'
+            )
+        )
+    with pytest.raises(DomainError):
+        make_transaction(
+            terms_snapshot=(
+                '{"quantity":{"value":"10.250","unit":"t",'
+                '"unit_registry_version":"CRR-UNITS-0.1"},"price":"99.00","currency":"SAR"}'
+            )
+        )
+
+
+def test_transaction_schedule_respects_accepted_delivery_window():
+    transaction = make_transaction(
+        terms_snapshot=(
+            '{"quantity":{"value":"10.250","unit":"t",'
+            '"unit_registry_version":"CRR-UNITS-0.1"},"price":"125.50",'
+            '"currency":"SAR","timing_terms":{"delivery_from":"2026-11-10",'
+            '"delivery_by":"2026-11-30"}}'
+        )
+    )
+    with pytest.raises(DomainError):
+        transaction.schedule(
+            actor_id="act_buyer",
+            at=NOW + timedelta(minutes=1),
+            scheduled_for=datetime(2026, 12, 1, tzinfo=UTC),
+        )
+    scheduled = transaction.schedule(
+        actor_id="act_buyer",
+        at=NOW + timedelta(minutes=1),
+        scheduled_for=datetime(2026, 11, 20, tzinfo=UTC),
+    )
+    assert scheduled.status is TransactionStatus.SCHEDULED
