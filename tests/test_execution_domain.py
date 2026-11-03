@@ -107,3 +107,66 @@ def test_execution_enforces_tenant_and_valid_aggregate_invariants():
             execution,
             quantity=Quantity(Decimal("0"), "t", "CRR-UNITS-0.1"),
         )
+
+
+def test_execution_closure_is_operational_not_verification_and_requires_reconciliation():
+    execution = Execution.from_transaction(
+        make_transaction(),
+        execution_id="exe_1",
+        actor_id="act_buyer",
+        at=NOW,
+    )
+    in_progress = replace(execution, status=ExecutionStatus.IN_PROGRESS)
+    with pytest.raises(DomainError):
+        in_progress.close(
+            actor_id="act_buyer",
+            at=NOW + timedelta(minutes=1),
+            reason="No operation reported",
+            has_reported_operations=False,
+            has_unresolved_exceptions=False,
+        )
+    with pytest.raises(DomainError):
+        in_progress.close(
+            actor_id="act_buyer",
+            at=NOW + timedelta(minutes=1),
+            reason="Unresolved exception",
+            has_reported_operations=True,
+            has_unresolved_exceptions=True,
+        )
+    closed = in_progress.close(
+        actor_id="act_buyer",
+        at=NOW + timedelta(minutes=1),
+        reason="Operational record reconciled",
+        has_reported_operations=True,
+        has_unresolved_exceptions=False,
+    )
+    assert closed.status is ExecutionStatus.CLOSED
+    assert closed.version == execution.version + 1
+    assert closed.provenance["verification_status"] == "NOT_VERIFIED"
+    assert closed.provenance["operational_closure_reason"] == "Operational record reconciled"
+
+
+def test_execution_cancellation_is_pre_execution_only_and_attributed():
+    execution = Execution.from_transaction(
+        make_transaction(),
+        execution_id="exe_1",
+        actor_id="act_buyer",
+        at=NOW,
+    )
+    cancelled = execution.cancel(
+        actor_id="act_buyer",
+        at=NOW + timedelta(minutes=1),
+        reason="Withdrawn before physical work",
+        has_reported_operations=False,
+        has_unresolved_exceptions=False,
+    )
+    assert cancelled.status is ExecutionStatus.CANCELLED
+    assert cancelled.provenance["cancelled_by"] == "act_buyer"
+    with pytest.raises(DomainError):
+        execution.cancel(
+            actor_id="act_buyer",
+            at=NOW + timedelta(minutes=1),
+            reason="Work already reported",
+            has_reported_operations=True,
+            has_unresolved_exceptions=False,
+        )
