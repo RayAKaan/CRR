@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
@@ -74,19 +74,17 @@ class Reservation:
             raise DomainError("Reservation release time must be timezone-aware.")
         if at < self.created_at:
             raise DomainError("Reservation cannot be released before it was created.")
-        return Reservation(
-            **{
-                **{field: getattr(self, field) for field in self.__dataclass_fields__},
-                "status": ReservationStatus.RELEASED,
-                "version": self.version + 1,
-                "updated_at": at,
-                "provenance": {
-                    **self.provenance,
-                    "last_transition": "RELEASED",
-                    "last_transition_actor_id": actor_id,
-                    "last_transition_at": at.isoformat(),
-                },
-            }
+        return replace(
+            self,
+            status=ReservationStatus.RELEASED,
+            version=self.version + 1,
+            updated_at=at,
+            provenance={
+                **self.provenance,
+                "last_transition": "RELEASED",
+                "last_transition_actor_id": actor_id,
+                "last_transition_at": at.isoformat(),
+            },
         )
 
     def expire(self, *, at: datetime) -> Reservation:
@@ -96,18 +94,16 @@ class Reservation:
             raise DomainError("Reservation expiry time must be timezone-aware.")
         if at < self.expires_at:
             raise DomainError("Reservation cannot expire before its expiry instant.")
-        return Reservation(
-            **{
-                **{field: getattr(self, field) for field in self.__dataclass_fields__},
-                "status": ReservationStatus.EXPIRED,
-                "version": self.version + 1,
-                "updated_at": at,
-                "provenance": {
-                    **self.provenance,
-                    "last_transition": "EXPIRED",
-                    "last_transition_at": at.isoformat(),
-                },
-            }
+        return replace(
+            self,
+            status=ReservationStatus.EXPIRED,
+            version=self.version + 1,
+            updated_at=at,
+            provenance={
+                **self.provenance,
+                "last_transition": "EXPIRED",
+                "last_transition_at": at.isoformat(),
+            },
         )
 
 
