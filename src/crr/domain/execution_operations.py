@@ -206,6 +206,8 @@ def validate_correction(
     """Require a separately authorized compensating record; never rewrite original history."""
     if "execution:correct" not in authorization_scopes and "admin:*" not in authorization_scopes:
         raise DomainError("An explicit execution:correct authorization is required.")
+    if original.mode is not OperationMode.REPORTED:
+        raise DomainError("Only a reported operation can be corrected.")
     if correction.supersedes_operation_id != original.id:
         raise DomainError("Correction must reference the exact operation it supersedes.")
     if correction.operation_type is not original.operation_type:
