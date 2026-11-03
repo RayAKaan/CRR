@@ -711,22 +711,26 @@ An agreement must not silently change accepted terms. Amendments must be explici
 
 # 30. Transaction API
 
-Transactions connect commercial commitments to physical execution.
+Transactions bind accepted commercial commitments to fully allocated Reservations and provide the authoritative commercial record for later physical execution.
 
-Lifecycle transitions are explicit:
+The Phase 5 API exposes:
+
+- `POST /v1/transactions`: create one Transaction for an active Agreement and its complete set of active, unexpired Reservations.
+- `GET /v1/transactions` and `GET /v1/transactions/{id}`: tenant-scoped reads.
+- `PATCH /v1/transactions/{id}`: versioned scheduling, dispute resolution, or cancellation.
+
+Creation requires an `Idempotency-Key`. Lifecycle changes require `If-Match` and an `Idempotency-Key`. Scheduling requires a timezone-aware future `scheduled_for`. Disputes and cancellations require a non-empty reason. Dispute resolution requires the `transactions:resolve` scope, a resolution note, and a new future schedule.
+
+The implemented Phase 5 transition graph is:
 
 ```text
-DISCOVERED
-→ PROPOSED
-→ ACCEPTED
-→ AGREED
-→ SCHEDULED
-→ EXECUTING
-→ COMPLETED
-→ VERIFIED
+AGREED → SCHEDULED | DISPUTED | CANCELLED
+SCHEDULED → DISPUTED | CANCELLED
+DISPUTED → SCHEDULED | CANCELLED
+CANCELLED → (terminal)
 ```
 
-The API must prevent illegal transitions.
+Only Agreement participants may schedule, dispute, or cancel. A Transaction protects its Agreement and linked Reservations from independent lifecycle changes. Cancelling a Transaction releases its remaining active Reservations atomically. Execution, completion, and verification states are not writable in Phase 5.
 
 ---
 
