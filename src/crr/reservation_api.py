@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from decimal import Decimal
 from typing import Annotated, Any
 from uuid import uuid4
 
@@ -333,22 +332,24 @@ def create_reservation(
         )
 
     # This row lock serializes every allocation against this Resource on PostgreSQL.
-    resource = session.scalar(
-        select(Resource)
-        .where(
-            Resource.id == opportunity.source_resource_state_id,
-            Resource.organization_id == principal.organization_id,
-        )
-        .with_for_update()
-    )
     state = session.scalar(
         select(ResourceState).where(
             ResourceState.id == body.resource_state_id,
             ResourceState.organization_id == principal.organization_id,
         )
     )
-    if resource is None or state is None or resource.id != state.resource_id:
+    if state is None:
         _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Source ResourceState not found.")
+    resource = session.scalar(
+        select(Resource)
+        .where(
+            Resource.id == state.resource_id,
+            Resource.organization_id == principal.organization_id,
+        )
+        .with_for_update()
+    )
+    if resource is None:
+        _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Source Resource not found.")
     if (
         resource.version != body.resource_state_version
         or state.resource_version != body.resource_state_version
