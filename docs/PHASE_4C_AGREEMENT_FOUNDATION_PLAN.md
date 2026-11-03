@@ -1,6 +1,6 @@
 # CRR Phase 4C — Agreement Foundation
 
-**Status:** In progress — domain contract and lifecycle increments implemented; persistence/API closure pending  
+**Status:** Implementation complete; final repository CI validation in progress — domain contract and lifecycle increments implemented; persistence/API closure pending  
 **Base:** Phase 4B Offer Foundation on `main`
 
 ## Objective
@@ -40,3 +40,19 @@ Create the canonical Agreement boundary: an auditable record of the exact commer
 ## PR 21 scope
 
 This increment introduces the immutable domain contract and focused domain tests only. Persistence and HTTP behavior are intentionally deferred to subsequent PRs.
+
+
+## Implementation record
+
+| PR | Scope | State |
+|---|---|---|
+| #21 | Accepted-Offer Agreement domain contract and immutable terms snapshot | Merged |
+| #22 | Explicit Agreement lifecycle and domain tests | Merged |
+| #23 | Tenant-scoped persistence and reversible Alembic migration | Merged |
+| #24 | Agreement API, idempotency, acceptance provenance, outbox, ETags, integration tests and documentation | Open; CI validation |
+
+The Agreement API reads acceptance provenance from the Offer's immutable outbox event at the accepted aggregate version. It does not trust client-supplied acceptance actor/time or commercial terms.
+
+## Final acceptance boundary
+
+Phase 4C is complete only when PR #24 is merged after all required CI jobs pass. The next phases remain Reservation and Transaction; this phase does not claim a complete physical-resource lifecycle or commercial production readiness.
