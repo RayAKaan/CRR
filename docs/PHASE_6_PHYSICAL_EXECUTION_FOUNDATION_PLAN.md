@@ -1,9 +1,9 @@
 # Phase 6 — Physical Execution Foundation
 
-**Status:** Planned / implementation not started  
-**Scope:** PRs #32–#35 (following this planning PR #31)  
+**Status:** Implementation merged through PR #34; PR #35 closes integration, conformance and documentation  
+**Scope:** PRs #32–#35 (following planning PR #31)  
 **Predecessor:** Phase 5 Transaction Foundation (PR #30 must pass all required CI and merge before Phase 6 implementation is merged)  
-**Branch preparation:** `phase6/execution-foundation` is based on the current Phase 5 PR head so the work can be prepared without bypassing the dependency.
+**Implementation base:** merged Phase 5 Transaction Foundation.
 
 ## Objective
 
@@ -73,9 +73,10 @@ A valid operation sequence is transaction-specific and may omit irrelevant opera
 - `POST /v1/executions` — create an Execution from an eligible scheduled Transaction.
 - `GET /v1/executions` — tenant-scoped list with bounded pagination and filters.
 - `GET /v1/executions/{id}` — tenant-scoped aggregate and operation history.
-- `POST /v1/executions/{id}/operations` — append a planned operation or report an actual operation, subject to distinct schemas and permissions.
+- `POST /v1/executions/{id}/operations/planned` and `/reported` — append a planned milestone or a linked actual report using distinct schemas and permissions.
 - `POST /v1/executions/{id}/exceptions` — record an operational exception.
 - `POST /v1/executions/{id}/corrections` — append a correction/superseding record; never mutate the original event.
+- `POST /v1/executions/{id}/lifecycle` — close an operational record or cancel it before any actual operation is reported.
 
 Final route shapes, request schemas and scopes must be reconciled with the existing API conventions before code is written. Mutations require idempotency keys and version preconditions. Reads and writes must enforce tenant boundaries.
 
@@ -107,4 +108,4 @@ These require later, separately scoped phases. Phase 6 must leave explicit exten
 
 ## Completion definition
 
-Phase 6 is complete only when PRs #31–#34 are merged after all required checks pass, post-merge CI on `main` is green, migrations are reversible, and the documented invariants are demonstrated by tests. A queued or skipped check is not a passing check.
+Phase 6 is complete only when PRs #31–#35 are merged after all required checks pass, post-merge CI on `main` is green, migrations are reversible, lifecycle closure/cancellation and documented invariants are demonstrated by tests. A queued or skipped check is not a passing check.

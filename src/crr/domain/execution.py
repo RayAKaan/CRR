@@ -6,7 +6,7 @@ pickup, shipment, receipt, processing, delivery, payment, or custody transfer oc
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
@@ -112,6 +112,78 @@ class Execution:
                 "source_resource_version": str(transaction.resource_version),
             },
         )
+
+    def close(
+        self,
+        *,
+        actor_id: str,
+        at: datetime,
+        reason: str,
+        has_unresolved_exceptions: bool,
+        has_reported_operations: bool,
+    ) -> Execution:
+        """Close the operational record; this is not verification or acceptance."""
+        self._validate_actor_time(actor_id, at, reason)
+        if self.status is not ExecutionStatus.IN_PROGRESS:
+            raise DomainError("Only an IN_PROGRESS Execution can be closed.")
+        if has_unresolved_exceptions:
+            raise DomainError("Execution cannot close while exceptions remain unresolved.")
+        if not has_reported_operations:
+            raise DomainError("Execution cannot close without a reported operational event.")
+        return replace(
+            self,
+            status=ExecutionStatus.CLOSED,
+            version=self.version + 1,
+            updated_at=at,
+            provenance={
+                **self.provenance,
+                "operationally_closed_by": actor_id,
+                "operationally_closed_at": at.isoformat(),
+                "operational_closure_reason": reason.strip(),
+                "verification_status": "NOT_VERIFIED",
+            },
+        )
+
+    def cancel(
+        self,
+        *,
+        actor_id: str,
+        at: datetime,
+        reason: str,
+        has_reported_operations: bool,
+        has_unresolved_exceptions: bool,
+    ) -> Execution:
+        """Cancel only before any actual operation has been reported."""
+        self._validate_actor_time(actor_id, at, reason)
+        if self.status is not ExecutionStatus.PLANNED:
+            raise DomainError("Only a PLANNED Execution can be cancelled.")
+        if has_reported_operations:
+            raise DomainError(
+                "Execution cannot be cancelled after an actual operation is reported."
+            )
+        if has_unresolved_exceptions:
+            raise DomainError("Execution cannot be cancelled while exceptions remain unresolved.")
+        return replace(
+            self,
+            status=ExecutionStatus.CANCELLED,
+            version=self.version + 1,
+            updated_at=at,
+            provenance={
+                **self.provenance,
+                "cancelled_by": actor_id,
+                "cancelled_at": at.isoformat(),
+                "cancellation_reason": reason.strip(),
+            },
+        )
+
+    @staticmethod
+    def _validate_actor_time(actor_id: str, at: datetime, reason: str) -> None:
+        if not actor_id:
+            raise DomainError("Execution lifecycle changes require an attributed actor.")
+        if at.tzinfo is None or at.utcoffset() is None:
+            raise DomainError("Execution lifecycle timestamp must be timezone-aware.")
+        if not reason.strip():
+            raise DomainError("Execution lifecycle changes require a reason.")
 
     def validate_tenant(self, organization_id: str) -> None:
         if self.organization_id != organization_id:

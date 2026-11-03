@@ -35,6 +35,8 @@ from crr.execution_schemas import (
     ExecutionCreate,
     ExecutionExceptionInput,
     ExecutionExceptionResolutionInput,
+    ExecutionLifecycleInput,
+    ExecutionLifecycleTransitionInput,
     ExecutionPlanInput,
     ExecutionReportInput,
 )
@@ -1023,5 +1025,257 @@ def correct_execution_operation(
         idempotency_key,
         "execution.operation.corrected",
         {"operation_id": correction.id, "supersedes_operation_id": original.id},
+    )
+    return _commit(session, request, response, item)
+
+
+@router.post("/v1/executions/{execution_id}/close")
+def close_execution(
+    execution_id: str,
+    body: ExecutionLifecycleInput,
+    request: Request,
+    response: Response,
+    session: Annotated[Session, Depends(_session_dependency())],
+    principal: Annotated[Any, Depends(_scope_dependency("executions:close"))],
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    digest = _body_hash(
+        body.model_dump(mode="json") | {"execution_id": execution_id, "if_match": if_match}
+    )
+    prior = _idempotency(session, principal.organization_id, idempotency_key, digest, request)
+    if prior:
+        return _replay(session, response, request, prior, principal.organization_id)
+    item = _locked_execution(session, execution_id, principal.organization_id, request, if_match)
+    reported_count = session.scalar(
+        select(func.count(OperationRecord.id)).where(
+            OperationRecord.organization_id == principal.organization_id,
+            OperationRecord.execution_id == item.id,
+            OperationRecord.mode == OperationMode.REPORTED.value,
+        )
+    )
+    unresolved_count = session.scalar(
+        select(func.count(ExceptionRecord.id))
+        .outerjoin(
+            ResolutionRecord,
+            (ResolutionRecord.organization_id == ExceptionRecord.organization_id)
+            & (ResolutionRecord.exception_id == ExceptionRecord.id),
+        )
+        .where(
+            ExceptionRecord.organization_id == principal.organization_id,
+            ExceptionRecord.execution_id == item.id,
+            ResolutionRecord.id.is_(None),
+        )
+    )
+    now = datetime.now(UTC)
+    try:
+        changed = _execution_domain(item).close(
+            actor_id=principal.actor_id,
+            at=now,
+            reason=body.reason,
+            has_unresolved_exceptions=bool(unresolved_count),
+            has_reported_operations=bool(reported_count),
+        )
+    except DomainError as exc:
+        _fail(request, 409, exc.code, "DOMAIN_CONFLICT", str(exc))
+    item.status = changed.status.value
+    item.version = changed.version
+    item.updated_at = changed.updated_at
+    item.provenance = changed.provenance
+    _remember(session, principal.organization_id, idempotency_key, digest, item.id)
+    _emit(
+        session,
+        request,
+        principal,
+        item,
+        idempotency_key,
+        "execution.operationally_closed",
+        {"reason": body.reason, "verification_status": "NOT_VERIFIED"},
+    )
+    return _commit(session, request, response, item)
+
+
+@router.post("/v1/executions/{execution_id}/cancel")
+def cancel_execution(
+    execution_id: str,
+    body: ExecutionLifecycleInput,
+    request: Request,
+    response: Response,
+    session: Annotated[Session, Depends(_session_dependency())],
+    principal: Annotated[Any, Depends(_scope_dependency("executions:cancel"))],
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    digest = _body_hash(
+        body.model_dump(mode="json") | {"execution_id": execution_id, "if_match": if_match}
+    )
+    prior = _idempotency(session, principal.organization_id, idempotency_key, digest, request)
+    if prior:
+        return _replay(session, response, request, prior, principal.organization_id)
+    item = _locked_execution(session, execution_id, principal.organization_id, request, if_match)
+    reported_count = session.scalar(
+        select(func.count(OperationRecord.id)).where(
+            OperationRecord.organization_id == principal.organization_id,
+            OperationRecord.execution_id == item.id,
+            OperationRecord.mode == OperationMode.REPORTED.value,
+        )
+    )
+    unresolved_count = session.scalar(
+        select(func.count(ExceptionRecord.id))
+        .outerjoin(
+            ResolutionRecord,
+            (ResolutionRecord.organization_id == ExceptionRecord.organization_id)
+            & (ResolutionRecord.exception_id == ExceptionRecord.id),
+        )
+        .where(
+            ExceptionRecord.organization_id == principal.organization_id,
+            ExceptionRecord.execution_id == item.id,
+            ResolutionRecord.id.is_(None),
+        )
+    )
+    now = datetime.now(UTC)
+    try:
+        changed = _execution_domain(item).cancel(
+            actor_id=principal.actor_id,
+            at=now,
+            reason=body.reason,
+            has_reported_operations=bool(reported_count),
+            has_unresolved_exceptions=bool(unresolved_count),
+        )
+    except DomainError as exc:
+        _fail(request, 409, exc.code, "DOMAIN_CONFLICT", str(exc))
+    item.status = changed.status.value
+    item.version = changed.version
+    item.updated_at = changed.updated_at
+    item.provenance = changed.provenance
+    _remember(session, principal.organization_id, idempotency_key, digest, item.id)
+    _emit(
+        session,
+        request,
+        principal,
+        item,
+        idempotency_key,
+        "execution.cancelled",
+        {"reason": body.reason},
+    )
+    return _commit(session, request, response, item)
+
+
+@router.post("/v1/executions/{execution_id}/lifecycle")
+def transition_execution_lifecycle(
+    execution_id: str,
+    body: ExecutionLifecycleTransitionInput,
+    request: Request,
+    response: Response,
+    session: Annotated[Session, Depends(_session_dependency())],
+    principal: Annotated[Any, Depends(_scope_dependency("executions:read"))],
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    target = ExecutionStatus(body.status)
+    required_scope = "execution:close" if target is ExecutionStatus.CLOSED else "execution:cancel"
+    if required_scope not in principal.scopes and "admin:*" not in principal.scopes:
+        _fail(
+            request,
+            403,
+            "EXECUTION_LIFECYCLE_FORBIDDEN",
+            "AUTHORIZATION_FAILURE",
+            f"An explicit {required_scope} authorization is required.",
+        )
+    digest = _body_hash(
+        body.model_dump(mode="json") | {"execution_id": execution_id, "if_match": if_match}
+    )
+    prior = _idempotency(session, principal.organization_id, idempotency_key, digest, request)
+    if prior:
+        return _replay(session, response, request, prior, principal.organization_id)
+    item = _locked_execution(session, execution_id, principal.organization_id, request, if_match)
+    if item.status in {ExecutionStatus.CLOSED.value, ExecutionStatus.CANCELLED.value}:
+        _fail(
+            request,
+            409,
+            "EXECUTION_TERMINAL",
+            "DOMAIN_CONFLICT",
+            "Terminal Execution cannot change lifecycle state.",
+        )
+    reported_count = session.scalar(
+        select(func.count(OperationRecord.id)).where(
+            OperationRecord.organization_id == principal.organization_id,
+            OperationRecord.execution_id == item.id,
+            OperationRecord.mode == OperationMode.REPORTED.value,
+        )
+    )
+    unresolved_count = session.scalar(
+        select(func.count(ExceptionRecord.id))
+        .outerjoin(
+            ResolutionRecord,
+            (ResolutionRecord.organization_id == ExceptionRecord.organization_id)
+            & (ResolutionRecord.exception_id == ExceptionRecord.id),
+        )
+        .where(
+            ExceptionRecord.organization_id == principal.organization_id,
+            ExceptionRecord.execution_id == item.id,
+            ResolutionRecord.id.is_(None),
+        )
+    )
+    if target is ExecutionStatus.CLOSED:
+        if not reported_count:
+            _fail(
+                request,
+                409,
+                "EXECUTION_HAS_NO_REPORTED_OPERATIONS",
+                "DOMAIN_CONFLICT",
+                "Execution cannot close before an actual operation is reported.",
+            )
+        if unresolved_count:
+            _fail(
+                request,
+                409,
+                "EXECUTION_HAS_UNRESOLVED_EXCEPTIONS",
+                "DOMAIN_CONFLICT",
+                "Resolve all operational exceptions before closing Execution.",
+            )
+    elif reported_count:
+        _fail(
+            request,
+            409,
+            "EXECUTION_ALREADY_STARTED",
+            "DOMAIN_CONFLICT",
+            "Execution cannot be cancelled after an actual operation is reported.",
+        )
+    now = datetime.now(UTC)
+    domain = _execution_domain(item)
+    try:
+        transitioned = (
+            domain.close(
+                actor_id=principal.actor_id,
+                at=now,
+                reason=body.reason,
+                has_reported_operations=bool(reported_count),
+                has_unresolved_exceptions=bool(unresolved_count),
+            )
+            if target is ExecutionStatus.CLOSED
+            else domain.cancel(
+                actor_id=principal.actor_id,
+                at=now,
+                reason=body.reason,
+                has_reported_operations=bool(reported_count),
+                has_unresolved_exceptions=bool(unresolved_count),
+            )
+        )
+    except DomainError as exc:
+        _fail(request, 409, exc.code, "DOMAIN_CONFLICT", str(exc))
+    item.status = transitioned.status.value
+    item.version = transitioned.version
+    item.updated_at = transitioned.updated_at
+    item.provenance = transitioned.provenance
+    _remember(session, principal.organization_id, idempotency_key, digest, item.id)
+    _emit(
+        session,
+        request,
+        principal,
+        item,
+        idempotency_key,
+        "execution.closed" if target is ExecutionStatus.CLOSED else "execution.cancelled",
+        {"reason": body.reason, "actor_id": principal.actor_id},
     )
     return _commit(session, request, response, item)
