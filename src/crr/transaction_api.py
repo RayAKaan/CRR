@@ -462,9 +462,7 @@ def create_transaction(
             "DOMAIN_CONFLICT",
             "Transaction creation requires a currently valid Opportunity.",
         )
-    agreed_quantity, price, currency, valid_from, valid_until = _agreement_terms(
-        agreement, request
-    )
+    agreed_quantity, price, currency, valid_from, valid_until = _agreement_terms(agreement, request)
     if now < valid_from or now >= valid_until:
         _fail(
             request,
@@ -714,10 +712,7 @@ def transition_transaction(
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
-    digest = _body_hash(
-        body.model_dump(mode="json")
-        | {"transaction_id": transaction_id, "if_match": if_match}
-    )
+    digest = _body_hash(body.model_dump(mode="json") | {"transaction_id": transaction_id, "if_match": if_match})
     prior = _idempotency(session, principal.organization_id, idempotency_key, digest, request)
     if prior:
         return _replay(session, response, request, prior, principal.organization_id)
