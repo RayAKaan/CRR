@@ -27,6 +27,7 @@ class ExecutionOperation(Base):
         UniqueConstraint("organization_id", "id"),
         UniqueConstraint("organization_id", "execution_id", "id"),
         UniqueConstraint("organization_id", "execution_id", "sequence"),
+        UniqueConstraint("organization_id", "supersedes_operation_id"),
         CheckConstraint("sequence >= 1", name="ck_execution_operations_sequence_positive"),
         CheckConstraint(
             "operation_type IN ('PICKUP', 'SHIPMENT', 'RECEIPT', 'PROCESSING', 'OUTPUT', "
