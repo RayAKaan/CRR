@@ -134,3 +134,9 @@ class ExecutionCorrectionInput(BaseModel):
         if quantity_value is not None and (not quantity_unit or not value):
             raise ValueError("Quantity value, unit and registry must be supplied together.")
         return value
+
+
+class ExecutionLifecycleInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(min_length=1, max_length=2000)
