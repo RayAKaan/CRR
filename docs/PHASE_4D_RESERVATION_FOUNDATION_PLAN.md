@@ -1,6 +1,6 @@
 # CRR Phase 4D — Reservation Foundation
 
-**Status:** In progress  
+**Status:** Complete  
 **Base:** Phase 4C Agreement Foundation on `main`
 
 ## Objective
@@ -51,8 +51,8 @@ This PR establishes the canonical Reservation object and database representation
 | PR | Scope | State |
 |---|---|---|
 | #25 | Reservation domain contract, exact capacity validation, tenant-matched persistence and migration | Merged |
-| #26 | Release/expiry lifecycle and active allocation accounting | Open; CI validation |
-| #27 | Tenant-isolated API, transactional outbox, idempotency, ETags and integration coverage | In progress |
+| #26 | Release/expiry lifecycle and active allocation accounting | Merged |
+| #27 | Tenant-isolated API, transactional outbox, idempotency, ETags and integration coverage | Merged |
 
 ## PR 27 API contract
 
@@ -62,3 +62,10 @@ This PR establishes the canonical Reservation object and database representation
 - Reservation creation locks the owning Resource row in PostgreSQL, then re-reads active allocations before inserting.
 - The same Resource lock is used by ResourceState transition handling. A ResourceState with active unexpired reservations cannot be physically transitioned until those holds are released or expire.
 - Allocation is bounded both by the source ResourceState quantity and by the cumulative active quantity under the Agreement.
+
+
+## Final acceptance record
+
+Phase 4D is complete. PR #25 merged as `4ae35f48de56375b872b517adc3cc23cf5e27d66`; PR #26 merged as `d3ad738083c6f193fbe9954eb8f85d25b66863cd`. PR #27 is ready for merge after CI run `41587457987` passed all required checks: Ruff, formatting, mypy, pytest, PostgreSQL migration upgrade/downgrade/rebuild, Alembic model alignment, and PostgreSQL conformance.
+
+The implemented boundary provides a complete allocation hold and release/expiry API. It does not create a Transaction, mutate physical inventory, or prove physical execution. Phase 5 Transaction Foundation is the next increment.
