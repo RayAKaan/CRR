@@ -1086,9 +1086,11 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
         ).all()
         return _envelope(request, [_state_data(item) for item in states])
 
+    from crr.agreement_api import router as agreement_router
     from crr.demand_api import router as demand_router
 
     app.include_router(demand_router)
+    app.include_router(agreement_router)
     return app
 
 
