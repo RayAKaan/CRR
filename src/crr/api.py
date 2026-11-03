@@ -15,6 +15,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
+import crr.transaction_model  # noqa: F401
 from crr.database import SessionLocal
 from crr.domain import Quantity, TransitionKind, transition_state
 from crr.domain import ResourceState as DomainState
