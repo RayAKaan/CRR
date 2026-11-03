@@ -273,7 +273,6 @@ def test_agreement_expiry_requires_dedicated_scope():
     assert expired.json()["data"]["status"] == "EXPIRED"
 
 
-
 def test_active_transaction_prevents_agreement_lifecycle_change():
     client, token, engine = client_fixture()
     created = client.post(
