@@ -381,3 +381,22 @@ The executable evidence is:
 - full repository CI including PostgreSQL migration/model/conformance checks.
 
 Phase 3C does **not** claim economics, optimization, reservations, commercial conversion, physical shipment execution, evidence verification, or autonomous action.
+
+
+---
+
+## Phase 4C — Agreement boundary
+
+The reference implementation's Agreement increment demonstrates:
+
+- accepted-Offer-only creation;
+- recipient-attributed acceptance event;
+- exact immutable-at-creation terms snapshot;
+- source Offer identity/version retention;
+- tenant-scoped reads and writes;
+- idempotent creation and transactional outbox;
+- optimistic concurrency for lifecycle mutation;
+- explicit cancellation and termination;
+- strict separation from reservation, transaction, execution, and verification.
+
+This increment does not establish transaction, physical execution, evidence, or verification conformance.
