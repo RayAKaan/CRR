@@ -36,7 +36,7 @@ from crr.execution_schemas import (
     ExecutionExceptionInput,
     ExecutionExceptionResolutionInput,
     ExecutionLifecycleInput,
-    ExecutionLifecycleReasonInput,
+    ExecutionLifecycleTransitionInput,
     ExecutionPlanInput,
     ExecutionReportInput,
 )
@@ -1164,7 +1164,7 @@ def cancel_execution(
 @router.post("/v1/executions/{execution_id}/lifecycle")
 def transition_execution_lifecycle(
     execution_id: str,
-    body: ExecutionLifecycleInput,
+    body: ExecutionLifecycleTransitionInput,
     request: Request,
     response: Response,
     session: Annotated[Session, Depends(_session_dependency())],
@@ -1280,48 +1280,3 @@ def transition_execution_lifecycle(
     )
     return _commit(session, request, response, item)
 
-
-@router.post("/v1/executions/{execution_id}/close")
-def close_execution(
-    execution_id: str,
-    body: ExecutionLifecycleReasonInput,
-    request: Request,
-    response: Response,
-    session: Annotated[Session, Depends(_session_dependency())],
-    principal: Annotated[Any, Depends(_scope_dependency("executions:read"))],
-    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-):
-    return transition_execution_lifecycle(
-        execution_id=execution_id,
-        body=ExecutionLifecycleInput(status="CLOSED", reason=body.reason),
-        request=request,
-        response=response,
-        session=session,
-        principal=principal,
-        if_match=if_match,
-        idempotency_key=idempotency_key,
-    )
-
-
-@router.post("/v1/executions/{execution_id}/cancel")
-def cancel_execution(
-    execution_id: str,
-    body: ExecutionLifecycleReasonInput,
-    request: Request,
-    response: Response,
-    session: Annotated[Session, Depends(_session_dependency())],
-    principal: Annotated[Any, Depends(_scope_dependency("executions:read"))],
-    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-):
-    return transition_execution_lifecycle(
-        execution_id=execution_id,
-        body=ExecutionLifecycleInput(status="CANCELLED", reason=body.reason),
-        request=request,
-        response=response,
-        session=session,
-        principal=principal,
-        if_match=if_match,
-        idempotency_key=idempotency_key,
-    )
