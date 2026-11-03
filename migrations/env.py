@@ -4,6 +4,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+import crr.agreement_model
 import crr.capability_model
 import crr.demand_model
 import crr.economic_model
