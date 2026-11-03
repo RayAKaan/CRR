@@ -191,6 +191,10 @@ def reservation_fixture(state_quantity: str = "20.000"):
                             "unit": "t",
                             "unit_registry_version": "CRR-UNITS-0.1",
                         },
+                        "price": "125.50",
+                        "currency": "SAR",
+                        "delivery_terms": {"incoterm": "DAP"},
+                        "timing_terms": {"delivery_by": "2026-11-30"},
                         "valid_from": NOW.isoformat(),
                         "valid_until": datetime(2026, 12, 1, tzinfo=UTC).isoformat(),
                     }
