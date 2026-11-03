@@ -713,8 +713,7 @@ def transition_transaction(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
     digest = _body_hash(
-        body.model_dump(mode="json")
-        | {"transaction_id": transaction_id, "if_match": if_match}
+        body.model_dump(mode="json") | {"transaction_id": transaction_id, "if_match": if_match}
     )
     prior = _idempotency(session, principal.organization_id, idempotency_key, digest, request)
     if prior:
