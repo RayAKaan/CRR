@@ -263,7 +263,7 @@ def test_reservations_cannot_exceed_agreement_or_physical_quantity():
     assert first.status_code == 201, first.text
     assert second.status_code == 201, second.text
     assert over_agreement.status_code == 422
-    assert over_agreement.json()["error"]["code"] == "DOMAIN_ERROR"
+    assert over_agreement.json()["error"]["code"] == "DOMAIN_VALIDATION_FAILED"
 
 
 def test_reservation_rejects_stale_state_wrong_source_and_incompatible_unit():
