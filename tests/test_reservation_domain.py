@@ -70,7 +70,7 @@ def test_capacity_allows_exact_fit_and_rejects_over_allocation():
             agreement_quantity=quantity("10"),
             state_quantity=quantity("20"),
             already_reserved=quantity("15"),
-        already_reserved_for_agreement=quantity("0"),
+            already_reserved_for_agreement=quantity("0"),
         )
 
 
@@ -152,4 +152,15 @@ def test_active_allocation_rejects_incompatible_unit_and_naive_clock():
             now=NOW.replace(tzinfo=None),
             unit="t",
             unit_registry_version="CRR-UNITS-0.1",
+        )
+
+
+def test_capacity_rejects_cumulative_agreement_over_reservation():
+    with pytest.raises(DomainError):
+        validate_reservation_capacity(
+            requested=quantity("1"),
+            agreement_quantity=quantity("10"),
+            state_quantity=quantity("20"),
+            already_reserved=quantity("0"),
+            already_reserved_for_agreement=quantity("9.5"),
         )
