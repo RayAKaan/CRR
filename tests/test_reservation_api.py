@@ -478,16 +478,16 @@ def test_active_transaction_locks_linked_reservation_from_release():
     assert blocked.json()["error"]["code"] == "RESERVATION_BOUND_TO_TRANSACTION"
 
 
-def create_full_transaction_reservations(client, token):
+def create_full_transaction_reservations(client, token, key_prefix="transaction"):
     first = client.post(
         "/v1/reservations",
         json=payload("4.000"),
-        headers=auth(token, "transaction-reservation-first"),
+        headers=auth(token, f"{key_prefix}-reservation-first"),
     )
     second = client.post(
         "/v1/reservations",
         json=payload("6.250"),
-        headers=auth(token, "transaction-reservation-second"),
+        headers=auth(token, f"{key_prefix}-reservation-second"),
     )
     assert first.status_code == 201, first.text
     assert second.status_code == 201, second.text
@@ -694,7 +694,7 @@ def test_transaction_lifecycle_resolves_disputes_and_cancels_allocations_atomica
 
 
 def create_scheduled_transaction(client, token, key_prefix="execution"):
-    reservation_ids = create_full_transaction_reservations(client, token)
+    reservation_ids = create_full_transaction_reservations(client, token, key_prefix)
     created = client.post(
         "/v1/transactions",
         json={"agreement_id": "agr_a", "reservation_ids": reservation_ids},
