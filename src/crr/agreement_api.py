@@ -18,8 +18,8 @@ from crr.domain.agreement import Agreement as DomainAgreement
 from crr.domain.agreement import AgreementStatus
 from crr.domain.errors import DomainError
 from crr.models import IdempotencyRecord, OutboxEvent
-from crr.transaction_model import Transaction
 from crr.offer_model import Offer
+from crr.transaction_model import Transaction
 
 router = APIRouter()
 
