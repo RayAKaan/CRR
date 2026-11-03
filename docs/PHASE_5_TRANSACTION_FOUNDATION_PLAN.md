@@ -27,7 +27,7 @@ Create the canonical commercial Transaction that binds one accepted Agreement to
 | PR | Scope | State |
 |---|---|---|
 | #28 | Transaction domain contract, persistence model, Agreement/Opportunity/Resource/Reservation references and migration | Merged |
-| #29 | Transaction lifecycle, commercial obligation validation and cross-object lifecycle safeguards | Open; final CI validation |
+| #29 | Transaction lifecycle, commercial obligation validation and cross-object lifecycle safeguards | Merged |
 | #30 | Tenant-isolated Transaction API, idempotency, ETags, outbox and end-to-end integration tests | In progress |
 
 ## Lifecycle boundary
@@ -67,3 +67,20 @@ A Transaction is created in `AGREED` status only after full Reservation coverage
 
 
 PR #30 also enforces database-level checks for positive quantities/prices/versions, distinct commercial parties, valid lifecycle status and scheduled-state consistency. Reservation links are unique across Transactions. Offer and Opportunity versions are persisted and included in Transaction outbox provenance.
+
+
+## PR #29 acceptance
+
+PR #29 merged as `9752214a378159653198e1b78735de7cb2e44af6`. Ruff, formatting, mypy, pytest, PostgreSQL migration upgrade/downgrade/rebuild, model alignment and PostgreSQL conformance all passed.
+
+## PR #30 implementation closure checklist
+
+- [x] Tenant-scoped Transaction API and strict request schemas.
+- [x] Complete active Reservation set and exact Agreement quantity coverage.
+- [x] Accepted Offer/Opportunity and source ResourceState version snapshots.
+- [x] Serialized Agreement, Opportunity, Resource and Reservation validation.
+- [x] Database uniqueness and check constraints.
+- [x] Idempotent create/lifecycle APIs, ETags and transactional outbox.
+- [x] Atomic cancellation and Reservation release/expiry.
+- [x] Domain and API integration tests.
+- [ ] Final CI and merge.
