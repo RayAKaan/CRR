@@ -223,8 +223,9 @@ def payload(quantity: str = "6.000") -> dict:
 def test_create_reservation_is_idempotent_and_audited():
     client, token, engine = reservation_fixture()
     headers = auth(token, "reservation-create")
-    created = client.post("/v1/reservations", json=payload(), headers=headers)
-    replay = client.post("/v1/reservations", json=payload(), headers=headers)
+    request_payload = payload()
+    created = client.post("/v1/reservations", json=request_payload, headers=headers)
+    replay = client.post("/v1/reservations", json=request_payload, headers=headers)
     assert created.status_code == 201, created.text
     assert replay.status_code == 200
     item = created.json()["data"]
@@ -388,7 +389,7 @@ def test_reserved_resource_state_cannot_be_physically_transitioned():
     transition = client.post(
         "/v1/resource-states/rst_a/transitions",
         json={
-            "kind": "PHYSICAL_CHANGE",
+            "kind": "CORRECTION",
             "reason": "Attempted consumption while quantity is reserved",
             "occurred_at": (datetime.now(UTC) + timedelta(minutes=1)).isoformat(),
             "state_type": "ALUMINUM_INGOT",
