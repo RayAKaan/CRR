@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import JSON, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from crr.models import AwareDateTime, Base, ExactDecimal
@@ -34,4 +34,4 @@ class Reservation(Base):
     created_by: Mapped[str] = mapped_column(ForeignKey("actors.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(AwareDateTime(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(AwareDateTime(), nullable=False)
-    provenance: Mapped[dict[str, str]] = mapped_column(nullable=False)
+    provenance: Mapped[dict[str, str]] = mapped_column(JSON, nullable=False)
