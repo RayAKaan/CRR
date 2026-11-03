@@ -15,23 +15,18 @@ from crr.domain.errors import DomainError
 from crr.domain.execution import Execution as DomainExecution
 from crr.domain.execution import ExecutionStatus
 from crr.domain.execution_operations import ExecutionException as DomainException
-from crr.domain.execution_operations import (
-    ExecutionExceptionResolution as DomainResolution,
-    ExecutionOperation as DomainOperation,
-    ExecutionOperationType,
-    OperationMode,
-    validate_correction,
-    validate_reported_operation,
-)
+from crr.domain.execution_operations import ExecutionExceptionResolution as DomainResolution
+from crr.domain.execution_operations import ExecutionOperation as DomainOperation
+from crr.domain.execution_operations import ExecutionOperationType
+from crr.domain.execution_operations import OperationMode
+from crr.domain.execution_operations import validate_correction, validate_reported_operation
 from crr.domain.quantity import Quantity
 from crr.domain.transaction import Transaction as DomainTransaction
 from crr.domain.transaction import TransactionStatus
 from crr.execution_model import Execution as ExecutionRecord
-from crr.execution_operation_model import (
-    ExecutionException as ExceptionRecord,
-    ExecutionExceptionResolution as ResolutionRecord,
-    ExecutionOperation as OperationRecord,
-)
+from crr.execution_operation_model import ExecutionException as ExceptionRecord
+from crr.execution_operation_model import ExecutionExceptionResolution as ResolutionRecord
+from crr.execution_operation_model import ExecutionOperation as OperationRecord
 from crr.execution_schemas import (
     ExecutionCorrectionInput,
     ExecutionCreate,
