@@ -12,6 +12,7 @@ import crr.offer_model
 import crr.reservation_model
 import crr.opportunity_model
 import crr.transformation_model
+import crr.transaction_model
 from crr.models import Base
 
 config = context.config
