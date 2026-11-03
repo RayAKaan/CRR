@@ -62,6 +62,7 @@ def test_capacity_allows_exact_fit_and_rejects_over_allocation():
         agreement_quantity=quantity("10"),
         state_quantity=quantity("20"),
         already_reserved=quantity("15"),
+        already_reserved_for_agreement=quantity("0"),
     )
     with pytest.raises(DomainError):
         validate_reservation_capacity(
@@ -69,6 +70,7 @@ def test_capacity_allows_exact_fit_and_rejects_over_allocation():
             agreement_quantity=quantity("10"),
             state_quantity=quantity("20"),
             already_reserved=quantity("15"),
+        already_reserved_for_agreement=quantity("0"),
         )
 
 
@@ -79,6 +81,7 @@ def test_capacity_rejects_quantity_above_agreement_or_incompatible_units():
             agreement_quantity=quantity("10"),
             state_quantity=quantity("20"),
             already_reserved=quantity("0"),
+            already_reserved_for_agreement=quantity("0"),
         )
     with pytest.raises(DomainError):
         validate_reservation_capacity(
@@ -86,6 +89,7 @@ def test_capacity_rejects_quantity_above_agreement_or_incompatible_units():
             agreement_quantity=quantity("10", "kg"),
             state_quantity=quantity("20"),
             already_reserved=quantity("0"),
+            already_reserved_for_agreement=quantity("0"),
         )
 
 
