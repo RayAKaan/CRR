@@ -912,4 +912,6 @@ def test_execution_exceptions_and_corrections_are_append_only_and_authorized():
     assert len(operations) == 3
     assert operations[1]["id"] == original["id"]
     assert operations[2]["supersedes_operation_id"] == original["id"]
-    assert operations[2]["correction_reason"] == "Corrected measured quantity from signed scale ticket"
+    assert operations[2]["correction_reason"] == (
+        "Corrected measured quantity from signed scale ticket"
+    )
