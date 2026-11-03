@@ -404,7 +404,6 @@ def test_reserved_resource_state_cannot_be_physically_transitioned():
     assert transition.json()["error"]["code"] == "RESOURCE_STATE_RESERVED"
 
 
-
 def test_active_transaction_locks_linked_reservation_from_release():
     client, token, engine = reservation_fixture()
     created = client.post(
