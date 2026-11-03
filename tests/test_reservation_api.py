@@ -466,8 +466,6 @@ def test_active_transaction_locks_linked_reservation_from_release():
     assert blocked.status_code == 409
     assert blocked.json()["error"]["code"] == "RESERVATION_BOUND_TO_TRANSACTION"
 
-
-
 def create_full_transaction_reservations(client, token):
     first = client.post(
         "/v1/reservations",
