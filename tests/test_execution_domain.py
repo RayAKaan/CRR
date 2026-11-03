@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -102,9 +103,7 @@ def test_execution_enforces_tenant_and_valid_aggregate_invariants():
     with pytest.raises(TenantBoundaryError):
         execution.validate_tenant("org_other")
     with pytest.raises(DomainError):
-        Execution(
-            **{
-                **execution.__dict__,
-                "quantity": Quantity(Decimal("0"), "t", "CRR-UNITS-0.1"),
-            }
+        replace(
+            execution,
+            quantity=Quantity(Decimal("0"), "t", "CRR-UNITS-0.1"),
         )
