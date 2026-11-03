@@ -407,7 +407,20 @@ def transition_agreement(
         provenance=item.provenance,
     )
     try:
-        if body.status == "CANCELLED":
+        if body.status == "EXPIRED":
+            if (
+                "agreements:expire" not in principal.scopes
+                and "admin:*" not in principal.scopes
+            ):
+                _fail(
+                    request,
+                    403,
+                    "EXPIRY_SCOPE_REQUIRED",
+                    "AUTHORIZATION_FAILURE",
+                    "Agreement expiry requires the agreements:expire scope.",
+                )
+            changed = domain.expire(at=datetime.now(UTC))
+        elif body.status == "CANCELLED":
             changed = domain.cancel(actor_id=principal.actor_id, at=datetime.now(UTC))
         else:
             changed = domain.terminate(actor_id=principal.actor_id, at=datetime.now(UTC))
