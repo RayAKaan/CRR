@@ -919,7 +919,7 @@ The protocol should remain useful even when these participants are supplied by i
 
 # 26. Repository status
 
-This repository contains the protocol and architecture specification foundation and an executable reference implementation progressing through the Phase 5 Transaction Foundation. The implementation includes organization/actor/location/resource state, demand/capability/transformation, routing and feasibility, economics/optimization, Opportunity, Offer, Agreement and Reservation foundations. Phase 5 is adding a canonical Transaction that binds an accepted Agreement to complete, active Reservation coverage. Physical execution, evidence and verification remain later increments; this is not yet a complete end-to-end physical transaction system.
+This repository contains the protocol and architecture specification foundation and an executable reference implementation through the Phase 5 Transaction Foundation. The implementation includes organization/actor/location/resource state, demand/capability/transformation, routing and feasibility, economics/optimization, Opportunity, Offer, Agreement, Reservation and Transaction foundations. Transactions bind accepted Agreements to complete, active Reservation coverage and preserve accepted Offer/Opportunity versions. Physical execution, evidence and verification remain later increments; this is not yet a complete end-to-end physical transaction system.
 
 The specification remains authoritative for implementation semantics. The current code should be judged on:
 
@@ -960,7 +960,7 @@ That is the standard this repository is intended to meet.
 
 # Running the Reference API
 
-The reference API now includes the Phase 1 canonical physical-state foundation, routing and feasibility, and commercial Opportunity, Offer, Agreement, and Reservation boundaries. Agreement creation is accepted-Offer-only and retains an immutable terms snapshot with recipient-attributed acceptance provenance. Reservation creation is restricted to active Agreement participants and the current Opportunity source ResourceState; exact allocation is serialized against the owning Resource, bounded by both the Agreement and ResourceState, and auditable through release/expiry events. Active holds block ResourceState transitions. Reservations do not create Transactions, dispatches, execution records, evidence, or verified outcomes.
+The reference API now includes the Phase 1 canonical physical-state foundation, routing and feasibility, and commercial Opportunity, Offer, Agreement, Reservation and Transaction boundaries. Agreement creation is accepted-Offer-only and retains an immutable terms snapshot with recipient-attributed acceptance provenance. Reservation creation is restricted to active Agreement participants and the current Opportunity source ResourceState; exact allocation is serialized against the owning Resource and bounded by both the Agreement and ResourceState. Transaction creation requires the complete active Reservation set to exactly cover the accepted Agreement quantity, snapshots Offer/Opportunity versions, and emits auditable outbox events. Scheduling, dispute resolution and cancellation are versioned; cancellation releases linked Reservations atomically. Transactions do not mutate physical inventory or imply execution, delivery, payment or verified outcomes.
 
 From the repository root, install the package and start the API:
 

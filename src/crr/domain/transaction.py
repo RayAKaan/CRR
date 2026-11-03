@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, replace
-from datetime import datetime
-from decimal import Decimal
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 
 from crr.domain.errors import DomainError, TenantBoundaryError
@@ -31,7 +31,10 @@ class Transaction:
     id: str
     organization_id: str
     agreement_id: str
+    offer_id: str
+    offer_version: int
     opportunity_id: str
+    opportunity_version: int
     route_candidate_id: str
     resource_id: str
     resource_state_id: str
@@ -56,6 +59,7 @@ class Transaction:
             self.id,
             self.organization_id,
             self.agreement_id,
+            self.offer_id,
             self.opportunity_id,
             self.route_candidate_id,
             self.resource_id,
@@ -68,8 +72,13 @@ class Transaction:
             raise DomainError("Transaction identity, parties, and source references are required.")
         if self.proposer_actor_id == self.recipient_actor_id:
             raise DomainError("Transaction parties must be distinct.")
-        if self.resource_version < 1 or self.version < 1:
-            raise DomainError("Transaction resource and object versions must be positive.")
+        if (
+            self.resource_version < 1
+            or self.offer_version < 1
+            or self.opportunity_version < 1
+            or self.version < 1
+        ):
+            raise DomainError("Transaction source and object versions must be positive.")
         if self.quantity.value <= Decimal("0"):
             raise DomainError("Transaction quantity must be greater than zero.")
         if self.price < Decimal("0"):
@@ -88,6 +97,27 @@ class Transaction:
             raise DomainError("Transaction terms snapshot must be valid JSON.") from exc
         if not isinstance(terms, dict) or not terms:
             raise DomainError("Transaction terms snapshot must be a non-empty JSON object.")
+        try:
+            snapshot_quantity = terms["quantity"]
+            snapshot_value = Decimal(str(snapshot_quantity["value"]))
+            snapshot_price = Decimal(str(terms["price"]))
+            snapshot_unit = snapshot_quantity["unit"]
+            snapshot_registry = snapshot_quantity["unit_registry_version"]
+            snapshot_currency = terms["currency"]
+        except (KeyError, TypeError, ValueError, InvalidOperation) as exc:
+            raise DomainError(
+                "Transaction terms snapshot is missing valid commercial terms."
+            ) from exc
+        if (
+            snapshot_value != self.quantity.value
+            or snapshot_unit != self.quantity.unit
+            or snapshot_registry != self.quantity.unit_registry_version
+            or snapshot_price != self.price
+            or snapshot_currency != self.currency
+        ):
+            raise DomainError(
+                "Transaction fields must match the immutable accepted terms snapshot."
+            )
         for value in (self.created_at, self.updated_at):
             if value.tzinfo is None or value.utcoffset() is None:
                 raise DomainError("Transaction timestamps must be timezone-aware.")
@@ -119,6 +149,7 @@ class Transaction:
             raise DomainError("Transaction schedule time must be timezone-aware.")
         if scheduled_for <= at:
             raise DomainError("Transaction must be scheduled for a future instant.")
+        self._validate_schedule_window(scheduled_for)
         return self._changed(
             TransactionStatus.SCHEDULED,
             actor_id=actor_id,
@@ -158,6 +189,7 @@ class Transaction:
             raise DomainError("Resolved Transaction schedule must be timezone-aware.")
         if scheduled_for <= at:
             raise DomainError("Resolved Transaction must be scheduled for a future instant.")
+        self._validate_schedule_window(scheduled_for)
         return self._changed(
             TransactionStatus.SCHEDULED,
             actor_id=actor_id,
@@ -183,6 +215,53 @@ class Transaction:
             at=at,
             details={"cancellation_reason": reason.strip()},
         )
+
+    def _validate_schedule_window(self, scheduled_for: datetime) -> None:
+        try:
+            timing_terms = json.loads(self.terms_snapshot).get("timing_terms", {})
+        except (TypeError, ValueError) as exc:
+            raise DomainError("Transaction timing terms are invalid.") from exc
+        if not isinstance(timing_terms, dict):
+            raise DomainError("Transaction timing terms must be an object.")
+        bounds = (
+            (("delivery_from", "pickup_from"), True),
+            (("delivery_by", "pickup_by"), False),
+        )
+        for keys, is_lower_bound in bounds:
+            for key in keys:
+                raw = timing_terms.get(key)
+                if raw is None:
+                    continue
+                if not isinstance(raw, str) or not raw:
+                    raise DomainError(
+                        f"Accepted timing term {key} must be an ISO date or datetime."
+                    )
+                try:
+                    if "T" not in raw and " " not in raw:
+                        bound_date = date.fromisoformat(raw)
+                        valid = (
+                            scheduled_for.date() >= bound_date
+                            if is_lower_bound
+                            else scheduled_for.date() <= bound_date
+                        )
+                    else:
+                        bound_datetime = datetime.fromisoformat(raw)
+                        if bound_datetime.tzinfo is None or bound_datetime.utcoffset() is None:
+                            raise ValueError("Timing datetime must include a timezone.")
+                        valid = (
+                            scheduled_for >= bound_datetime
+                            if is_lower_bound
+                            else scheduled_for <= bound_datetime
+                        )
+                except ValueError as exc:
+                    raise DomainError(
+                        f"Accepted timing term {key} must be a valid ISO date or aware datetime."
+                    ) from exc
+                if not valid:
+                    direction = "before" if is_lower_bound else "after"
+                    raise DomainError(
+                        f"Transaction schedule cannot be {direction} accepted timing term {key}."
+                    )
 
     def _require_participant(self, actor_id: str) -> None:
         if actor_id not in {self.proposer_actor_id, self.recipient_actor_id}:

@@ -559,7 +559,14 @@ def get_opportunity(
     session: Annotated[Session, Depends(_session_dependency())],
     principal: Annotated[Any, Depends(_scope_dependency("opportunities:read"))],
 ):
-    item = _find(session, opportunity_id, principal.organization_id)
+    item = session.scalar(
+        select(Opportunity)
+        .where(
+            Opportunity.id == opportunity_id,
+            Opportunity.organization_id == principal.organization_id,
+        )
+        .with_for_update()
+    )
     if item is None:
         _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Opportunity not found.")
     return _envelope(request, _data(item))

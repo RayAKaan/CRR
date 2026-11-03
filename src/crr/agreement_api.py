@@ -334,7 +334,14 @@ def get_agreement(
     session: Annotated[Session, Depends(_session_dependency())],
     principal: Annotated[Any, Depends(_scope_dependency("agreements:read"))],
 ):
-    item = _find(session, agreement_id, principal.organization_id)
+    item = session.scalar(
+        select(Agreement)
+        .where(
+            Agreement.id == agreement_id,
+            Agreement.organization_id == principal.organization_id,
+        )
+        .with_for_update()
+    )
     if item is None:
         _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Agreement not found.")
     response.headers["ETag"] = f'"version-{item.version}"'

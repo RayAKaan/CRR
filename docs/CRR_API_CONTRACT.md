@@ -719,7 +719,7 @@ The Phase 5 API exposes:
 - `GET /v1/transactions` and `GET /v1/transactions/{id}`: tenant-scoped reads.
 - `PATCH /v1/transactions/{id}`: versioned scheduling, dispute resolution, or cancellation.
 
-Creation requires an `Idempotency-Key`. Lifecycle changes require `If-Match` and an `Idempotency-Key`. Scheduling requires a timezone-aware future `scheduled_for`. Disputes and cancellations require a non-empty reason. Dispute resolution requires the `transactions:resolve` scope, a resolution note, and a new future schedule.
+Creation requires an `Idempotency-Key`. Lifecycle changes require `If-Match` and an `Idempotency-Key`. Scheduling requires a timezone-aware future `scheduled_for` that falls within any accepted `delivery_from`, `delivery_by`, `pickup_from` or `pickup_by` bounds. The Transaction retains the accepted Offer and Opportunity versions alongside the route candidate. Disputes and cancellations require a non-empty reason. Dispute resolution requires the `transactions:resolve` scope, a resolution note, and a new future schedule.
 
 The implemented Phase 5 transition graph is:
 

@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     JSON,
+    CheckConstraint,
     Column,
     ForeignKey,
     ForeignKeyConstraint,
@@ -28,9 +29,35 @@ class Transaction(Base):
     __table_args__ = (
         UniqueConstraint("organization_id", "id"),
         UniqueConstraint("organization_id", "agreement_id"),
+        CheckConstraint("quantity_value > 0", name="ck_transactions_quantity_positive"),
+        CheckConstraint("price >= 0", name="ck_transactions_price_nonnegative"),
+        CheckConstraint("resource_version >= 1", name="ck_transactions_resource_version_positive"),
+        CheckConstraint("offer_version >= 1", name="ck_transactions_offer_version_positive"),
+        CheckConstraint(
+            "opportunity_version >= 1",
+            name="ck_transactions_opportunity_version_positive",
+        ),
+        CheckConstraint("version >= 1", name="ck_transactions_version_positive"),
+        CheckConstraint(
+            "proposer_actor_id <> recipient_actor_id",
+            name="ck_transactions_parties_distinct",
+        ),
+        CheckConstraint(
+            "status IN ('AGREED', 'SCHEDULED', 'DISPUTED', 'CANCELLED')",
+            name="ck_transactions_status",
+        ),
+        CheckConstraint(
+            "status != 'SCHEDULED' OR scheduled_for IS NOT NULL",
+            name="ck_transactions_schedule_consistency",
+        ),
         ForeignKeyConstraint(
             ["organization_id", "agreement_id"],
             ["agreements.organization_id", "agreements.id"],
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "offer_id"],
+            ["offers.organization_id", "offers.id"],
+            name="fk_transactions_org_offer",
         ),
         ForeignKeyConstraint(
             ["organization_id", "opportunity_id"],
@@ -62,7 +89,10 @@ class Transaction(Base):
     id: Mapped[str] = mapped_column(String(80), primary_key=True)
     organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False)
     agreement_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    offer_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    offer_version: Mapped[int] = mapped_column(Integer, nullable=False)
     opportunity_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    opportunity_version: Mapped[int] = mapped_column(Integer, nullable=False)
     route_candidate_id: Mapped[str] = mapped_column(String(120), nullable=False)
     resource_id: Mapped[str] = mapped_column(String(80), nullable=False)
     resource_state_id: Mapped[str] = mapped_column(String(80), nullable=False)
@@ -99,5 +129,10 @@ transaction_reservations = Table(
         ["reservations.organization_id", "reservations.id"],
     ),
     PrimaryKeyConstraint("organization_id", "transaction_id", "reservation_id"),
-    Index("ix_transaction_reservations_reservation", "organization_id", "reservation_id"),
+    Index(
+        "uq_transaction_reservations_org_reservation",
+        "organization_id",
+        "reservation_id",
+        unique=True,
+    ),
 )

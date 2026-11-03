@@ -12,7 +12,7 @@ Create the canonical commercial Transaction that binds one accepted Agreement to
 
 1. A Transaction belongs to one organization and references an Agreement and Opportunity in that same organization.
 2. One Agreement produces at most one Transaction in this reference implementation.
-3. The Transaction snapshots the accepted Agreement terms and route candidate; later Offer or Opportunity changes cannot rewrite that snapshot.
+3. The Transaction snapshots the accepted Agreement terms, Offer ID/version, Opportunity ID/version and route candidate; later Offer or Opportunity changes cannot rewrite that snapshot.
 4. A Transaction references one or more Reservations. Every linked Reservation must belong to the same Agreement, organization, resource, ResourceState and ResourceState version.
 5. The sum of linked Reservation quantities must exactly equal the agreed quantity before a Transaction can be created.
 6. All linked Reservations must be active and unexpired at creation.
@@ -27,8 +27,8 @@ Create the canonical commercial Transaction that binds one accepted Agreement to
 | PR | Scope | State |
 |---|---|---|
 | #28 | Transaction domain contract, persistence model, Agreement/Opportunity/Resource/Reservation references and migration | Merged |
-| #29 | Transaction lifecycle, commercial obligation validation and cross-object lifecycle safeguards | In progress |
-| #30 | Tenant-isolated Transaction API, idempotency, ETags, outbox and end-to-end integration tests | Planned |
+| #29 | Transaction lifecycle, commercial obligation validation and cross-object lifecycle safeguards | Merged |
+| #30 | Tenant-isolated Transaction API, idempotency, ETags, outbox and end-to-end integration tests | In progress |
 
 ## Lifecycle boundary
 
@@ -53,3 +53,34 @@ A Transaction is created in `AGREED` status only after full Reservation coverage
 - Prevents Agreement cancellation/expiry/termination while a non-cancelled Transaction exists.
 - Prevents independent Reservation release/expiry while a non-cancelled Transaction holds it.
 - Transaction cancellation releases its active Reservation set atomically; the Transaction API is wired in PR #30.
+
+
+## PR #30 implementation notes
+
+- Adds tenant-scoped Transaction create, list and detail endpoints.
+- Transaction creation locks the Agreement and source Resource, rechecks idempotency after serialization, and requires the request to include the complete active Reservation set.
+- Creation revalidates accepted Offer/Opportunity freshness, current ResourceState version, Agreement validity and exact Reservation quantity coverage.
+- Transaction creation snapshots accepted terms, stores all Reservation links and emits an outbox event atomically.
+- Lifecycle API requires ETags and idempotency keys. Scheduling, dispute, dispute resolution and cancellation are explicitly validated.
+- Cancellation atomically marks all remaining active linked Reservations RELEASED (or EXPIRED when their expiry instant has passed), records Reservation outbox events, and records the Transaction transition in the same database transaction.
+- Once an Agreement has a Transaction, additional Reservations are blocked even if that Transaction is later cancelled; a cancelled Agreement cannot be reused to create a second Transaction.
+
+
+PR #30 also enforces database-level checks for positive quantities/prices/versions, distinct commercial parties, valid lifecycle status and scheduled-state consistency. Reservation links are unique across Transactions. Offer and Opportunity versions are persisted and included in Transaction outbox provenance.
+
+
+## PR #29 acceptance
+
+PR #29 merged as `9752214a378159653198e1b78735de7cb2e44af6`. Ruff, formatting, mypy, pytest, PostgreSQL migration upgrade/downgrade/rebuild, model alignment and PostgreSQL conformance all passed.
+
+## PR #30 implementation closure checklist
+
+- [x] Tenant-scoped Transaction API and strict request schemas.
+- [x] Complete active Reservation set and exact Agreement quantity coverage.
+- [x] Accepted Offer/Opportunity and source ResourceState version snapshots.
+- [x] Serialized Agreement, Opportunity, Resource and Reservation validation.
+- [x] Database uniqueness and check constraints.
+- [x] Idempotent create/lifecycle APIs, ETags and transactional outbox.
+- [x] Atomic cancellation and Reservation release/expiry.
+- [x] Domain and API integration tests.
+- [ ] Final CI and merge.
