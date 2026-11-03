@@ -1,0 +1,42 @@
+# CRR Phase 4C — Agreement Foundation
+
+**Status:** In progress  
+**Base:** Phase 4B Offer Foundation on `main`
+
+## Objective
+
+Create the canonical Agreement boundary: an auditable record of the exact commercial terms accepted from an Offer. Agreement creation must not reserve resources, create a Transaction, mutate ResourceState, initiate payment, or imply physical execution.
+
+## Normative decisions
+
+1. An Agreement may only be created from an Offer in `ACCEPTED` state.
+2. The accepting actor must be the Offer recipient.
+3. Agreement stores the source Offer ID and version and a canonical immutable-at-creation terms snapshot.
+4. The snapshot includes exact quantity, unit registry version, exact price, currency, delivery/timing terms, route assumptions, conditions, and validity window.
+5. Agreement lifecycle changes are explicit, versioned, attributed, idempotent, and concurrency-protected.
+6. Tenant boundaries and least-privilege authorization apply to all Agreement reads and mutations.
+7. Agreement is not a Reservation, Transaction, Execution, Evidence, settlement, or proof of legal enforceability.
+
+## Planned PR sequence
+
+- PR #21 — Agreement domain contract and immutable accepted-terms snapshot.
+- PR #22 — Agreement lifecycle, transition rules, expiry/cancellation and domain conformance.
+- PR #23 — Tenant-isolated Agreement API, scopes, idempotency, ETags and transactional outbox.
+- PR #24 — SQLAlchemy persistence, reversible migration, API/domain integration tests, documentation and full regression closure.
+
+## Definition of done
+
+- Accepted Offer is the only creation source; arbitrary client-supplied commercial terms are never accepted as Agreement truth.
+- Recipient acceptance is explicitly attributed and timestamped.
+- The accepted terms snapshot is stable and reproducible.
+- All lifecycle changes are explicit and versioned.
+- Cross-tenant reads/references are rejected.
+- Mutations are idempotent and protected by optimistic concurrency.
+- Events are written transactionally with canonical state.
+- SQLite and PostgreSQL migration upgrade/downgrade/rebuild and model alignment pass.
+- Ruff, formatting, mypy, pytest and PostgreSQL CI pass without weakening tests.
+- API contract, domain model, conformance matrix and README describe only implemented behavior.
+
+## PR 21 scope
+
+This increment introduces the immutable domain contract and focused domain tests only. Persistence and HTTP behavior are intentionally deferred to subsequent PRs.
