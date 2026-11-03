@@ -238,12 +238,8 @@ def test_create_reservation_is_idempotent_and_audited():
         event = connection.execute(
             select(OutboxEvent).where(OutboxEvent.aggregate_id == item["id"])
         ).one()
-        state = connection.execute(
-            select(ResourceState).where(ResourceState.id == "rst_a")
-        ).one()
-        resource = connection.execute(
-            select(Resource).where(Resource.id == "res_a")
-        ).one()
+        state = connection.execute(select(ResourceState).where(ResourceState.id == "rst_a")).one()
+        resource = connection.execute(select(Resource).where(Resource.id == "res_a")).one()
     assert record.resource_state_id == "rst_a"
     assert state.quantity_value == Decimal("20.000")
     assert resource.version == 1
