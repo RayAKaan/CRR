@@ -919,7 +919,7 @@ The protocol should remain useful even when these participants are supplied by i
 
 # 26. Repository status
 
-This repository contains the protocol and architecture specification foundation and an executable reference implementation through the Phase 4D Reservation boundary. The implementation includes organization/actor/location/resource state, demand/capability/transformation, routing and feasibility, economics/optimization, Opportunity, Offer, Agreement, and Reservation foundations. Agreements snapshot recipient-attributed accepted Offer terms. Reservations hold exact quantities against current immutable ResourceState versions, enforce Agreement and physical allocation bounds, and support audited release/expiry. Transaction, physical execution, evidence, and verification remain future increments; this is not yet a complete end-to-end physical transaction system.
+This repository contains the protocol and architecture specification foundation and an executable reference implementation progressing through the Phase 5 Transaction Foundation. The implementation includes organization/actor/location/resource state, demand/capability/transformation, routing and feasibility, economics/optimization, Opportunity, Offer, Agreement and Reservation foundations. Phase 5 is adding a canonical Transaction that binds an accepted Agreement to complete, active Reservation coverage. Physical execution, evidence and verification remain later increments; this is not yet a complete end-to-end physical transaction system.
 
 The specification remains authoritative for implementation semantics. The current code should be judged on:
 
