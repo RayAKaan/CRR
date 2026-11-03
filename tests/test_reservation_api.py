@@ -80,6 +80,8 @@ def reservation_fixture(state_quantity: str = "20.000"):
                     "execution:correct",
                     "executions:exceptions:write",
                     "executions:exceptions:resolve",
+                    "execution:close",
+                    "execution:cancel",
                     "executions:close",
                     "executions:cancel",
                 ],
