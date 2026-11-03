@@ -9,7 +9,16 @@ from sqlalchemy.pool import StaticPool
 
 from crr.agreement_model import Agreement
 from crr.api import create_app
-from crr.models import Actor, APIKey, Base, Location, Organization, OutboxEvent, Resource, ResourceState
+from crr.models import (
+    Actor,
+    APIKey,
+    Base,
+    Location,
+    Organization,
+    OutboxEvent,
+    Resource,
+    ResourceState,
+)
 from crr.offer_model import Offer
 from crr.opportunity_model import Opportunity
 from crr.transaction_model import Transaction
