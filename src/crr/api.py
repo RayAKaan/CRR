@@ -31,7 +31,7 @@ from crr.models import (
     StateTransition,
 )
 from crr.reservation_model import Reservation as ReservationRecord
-from crr.transaction_model import Transaction as TransactionRecord
+import crr.transaction_model
 from crr.schemas import (
     ActorCreate,
     LocationCreate,
