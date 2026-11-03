@@ -769,9 +769,7 @@ def test_execution_creation_and_reported_operations_are_idempotent_and_audited()
     assert result["operations"][1]["quantity"]["value"] == "4.000"
 
     with engine.connect() as connection:
-        state = connection.execute(
-            select(ResourceState).where(ResourceState.id == "rst_a")
-        ).one()
+        state = connection.execute(select(ResourceState).where(ResourceState.id == "rst_a")).one()
         events = connection.execute(
             select(OutboxEvent).where(OutboxEvent.aggregate_id == execution_id)
         ).all()
