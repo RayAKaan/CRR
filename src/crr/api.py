@@ -19,6 +19,7 @@ from crr.database import SessionLocal
 from crr.domain import Quantity, TransitionKind, transition_state
 from crr.domain import ResourceState as DomainState
 from crr.domain.errors import DomainError
+from crr.reservation_model import Reservation as ReservationRecord
 from crr.models import (
     Actor,
     APIKey,
@@ -922,10 +923,12 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
         if predecessor is None:
             _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "ResourceState not found.")
         resource = session.scalar(
-            select(Resource).where(
+            select(Resource)
+            .where(
                 Resource.id == predecessor.resource_id,
                 Resource.organization_id == principal.organization_id,
             )
+            .with_for_update()
         )
         location = session.scalar(
             select(Location).where(
@@ -977,6 +980,24 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
             )
         except DomainError as exc:
             _fail(request, 422, exc.code, "VALIDATION_FAILURE", str(exc))
+        active_reservation = session.scalar(
+            select(ReservationRecord.id)
+            .where(
+                ReservationRecord.organization_id == principal.organization_id,
+                ReservationRecord.resource_state_id == predecessor.id,
+                ReservationRecord.status == "ACTIVE",
+                ReservationRecord.expires_at > datetime.now(UTC),
+            )
+            .limit(1)
+        )
+        if active_reservation is not None:
+            _fail(
+                request,
+                409,
+                "RESOURCE_STATE_RESERVED",
+                "DOMAIN_CONFLICT",
+                "ResourceState cannot transition while active Reservations hold its quantity.",
+            )
         result = session.execute(
             update(Resource)
             .where(
@@ -1088,9 +1109,11 @@ def create_app(session_factory: sessionmaker = SessionLocal, unit_registry=None)
 
     from crr.agreement_api import router as agreement_router
     from crr.demand_api import router as demand_router
+    from crr.reservation_api import router as reservation_router
 
     app.include_router(demand_router)
     app.include_router(agreement_router)
+    app.include_router(reservation_router)
     return app
 
 
