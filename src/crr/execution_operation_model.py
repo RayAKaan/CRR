@@ -29,7 +29,8 @@ class ExecutionOperation(Base):
         UniqueConstraint("organization_id", "execution_id", "sequence"),
         CheckConstraint("sequence >= 1", name="ck_execution_operations_sequence_positive"),
         CheckConstraint(
-            "operation_type IN ('PICKUP', 'SHIPMENT', 'RECEIPT', 'PROCESSING', 'OUTPUT', 'DELIVERY', 'ACCEPTANCE')",
+            "operation_type IN ('PICKUP', 'SHIPMENT', 'RECEIPT', 'PROCESSING', 'OUTPUT', "
+            "'DELIVERY', 'ACCEPTANCE')",
             name="ck_execution_operations_type",
         ),
         CheckConstraint(
@@ -85,7 +86,12 @@ class ExecutionOperation(Base):
             ],
             name="fk_execution_operations_supersedes",
         ),
-        Index("ix_execution_operations_org_execution", "organization_id", "execution_id", "sequence"),
+        Index(
+            "ix_execution_operations_org_execution",
+            "organization_id",
+            "execution_id",
+            "sequence",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(80), primary_key=True)
