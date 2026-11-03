@@ -36,7 +36,6 @@ from crr.execution_schemas import (
     ExecutionExceptionInput,
     ExecutionExceptionResolutionInput,
     ExecutionLifecycleInput,
-    ExecutionLifecycleInput,
     ExecutionPlanInput,
     ExecutionReportInput,
 )
@@ -1243,9 +1242,31 @@ def transition_execution_lifecycle(
             "Execution cannot be cancelled after an actual operation is reported.",
         )
     now = datetime.now(UTC)
-    item.status = target.value
-    item.version += 1
-    item.updated_at = now
+    domain = _execution_domain(item)
+    try:
+        transitioned = (
+            domain.close(
+                actor_id=principal.actor_id,
+                at=now,
+                reason=body.reason,
+                has_reported_operations=bool(reported_count),
+                has_unresolved_exceptions=bool(unresolved_count),
+            )
+            if target is ExecutionStatus.CLOSED
+            else domain.cancel(
+                actor_id=principal.actor_id,
+                at=now,
+                reason=body.reason,
+                has_reported_operations=bool(reported_count),
+                has_unresolved_exceptions=bool(unresolved_count),
+            )
+        )
+    except DomainError as exc:
+        _fail(request, 409, exc.code, "DOMAIN_CONFLICT", str(exc))
+    item.status = transitioned.status.value
+    item.version = transitioned.version
+    item.updated_at = transitioned.updated_at
+    item.provenance = transitioned.provenance
     _remember(session, principal.organization_id, idempotency_key, digest, item.id)
     _emit(
         session,
