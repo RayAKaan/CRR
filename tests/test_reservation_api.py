@@ -644,7 +644,7 @@ def test_transaction_lifecycle_resolves_disputes_and_cancels_allocations_atomica
         json=resolution_body,
         headers=auth(token, "transaction-resolve") | {"If-Match": '"version-3"'},
     )
-    assert resolved.status_code == 200, resolved.text
+    assert resolved.status_code == 201, resolved.text
     assert resolved.json()["data"]["status"] == "SCHEDULED"
 
     cancelled = client.patch(
@@ -756,7 +756,7 @@ def test_execution_creation_and_reported_operations_are_idempotent_and_audited()
         json=reported_body,
         headers=reported_headers,
     )
-    assert reported.status_code == 200, reported.text
+    assert reported.status_code == 201, reported.text
     assert replayed_report.status_code == 200
     detail = client.get(f"/v1/executions/{execution_id}", headers=auth(token))
     collection = client.get("/v1/executions", headers=auth(token))
@@ -883,7 +883,7 @@ def test_execution_exceptions_and_corrections_are_append_only_and_authorized():
         json={"code": "VEHICLE_DELAY", "reason": "Vehicle delayed at source"},
         headers=auth(token, "execution-history-exception") | {"If-Match": '"version-3"'},
     )
-    assert exception.status_code == 200, exception.text
+    assert exception.status_code == 201, exception.text
     exception_id = exception.json()["data"]["exceptions"][0]["id"]
     assert exception.json()["data"]["status"] == "EXCEPTION"
 
@@ -907,7 +907,7 @@ def test_execution_exceptions_and_corrections_are_append_only_and_authorized():
         },
         headers=auth(token, "execution-history-correction") | {"If-Match": '"version-5"'},
     )
-    assert correction.status_code == 200, correction.text
+    assert correction.status_code == 201, correction.text
     operations = correction.json()["data"]["operations"]
     assert len(operations) == 3
     assert operations[1]["id"] == original["id"]
