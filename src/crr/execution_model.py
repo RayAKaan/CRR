@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
     ForeignKey,
     ForeignKeyConstraint,
@@ -64,4 +65,4 @@ class Execution(Base):
     created_by: Mapped[str] = mapped_column(String(80), nullable=False)
     created_at: Mapped[datetime] = mapped_column(AwareDateTime(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(AwareDateTime(), nullable=False)
-    provenance: Mapped[dict[str, str]] = mapped_column(nullable=False)
+    provenance: Mapped[dict[str, str]] = mapped_column(JSON, nullable=False)
