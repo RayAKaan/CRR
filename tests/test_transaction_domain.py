@@ -280,7 +280,6 @@ def test_transaction_allocation_rejects_stale_inactive_and_cross_tenant_reservat
         )
 
 
-
 def test_transaction_fields_must_match_immutable_agreement_terms_snapshot():
     with pytest.raises(DomainError):
         make_transaction(
