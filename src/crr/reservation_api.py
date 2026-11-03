@@ -25,8 +25,8 @@ from crr.models import IdempotencyRecord, OutboxEvent, Resource, ResourceState
 from crr.offer_model import Offer
 from crr.opportunity_model import Opportunity
 from crr.reservation_model import Reservation as ReservationRecord
-from crr.transaction_model import Transaction, transaction_reservations
 from crr.reservation_schemas import ReservationCreate, ReservationLifecycleInput
+from crr.transaction_model import Transaction, transaction_reservations
 
 router = APIRouter()
 
