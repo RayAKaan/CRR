@@ -322,25 +322,46 @@ def test_release_is_versioned_and_frees_allocation():
 
 
 def test_reservation_expiry_requires_scope_and_expiry_instant():
-    client, token, _ = reservation_fixture()
+    client, token, engine = reservation_fixture()
     created = client.post(
         "/v1/reservations",
         json=payload(),
         headers=auth(token, "reservation-for-expiry"),
     )
     reservation_id = created.json()["data"]["id"]
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    with factory.begin() as session:
+        key = session.scalar(select(APIKey).where(APIKey.id == "key_buyer"))
+        key.scopes = ["reservations:read", "reservations:write"]
+    denied = client.patch(
+        f"/v1/reservations/{reservation_id}",
+        json={"status": "EXPIRED"},
+        headers=auth(token, "reservation-expire-denied") | {"If-Match": '"version-1"'},
+    )
+    assert denied.status_code == 403
+
+    with factory.begin() as session:
+        key = session.scalar(select(APIKey).where(APIKey.id == "key_buyer"))
+        key.scopes = ["reservations:read", "reservations:write", "reservations:expire"]
     early = client.patch(
         f"/v1/reservations/{reservation_id}",
         json={"status": "EXPIRED"},
-        headers=auth(token, "reservation-expire-early")
-        | {"If-Match": '"version-1"'},
+        headers=auth(token, "reservation-expire-early") | {"If-Match": '"version-1"'},
     )
     assert early.status_code == 409
 
 
 def test_reservation_reads_are_tenant_scoped_and_require_scope():
-    client, token, _ = reservation_fixture()
-    denied = client.get("/v1/reservations", headers={"Authorization": f"Bearer {token}"})
-    assert denied.status_code == 200
+    client, token, engine = reservation_fixture()
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    with factory.begin() as session:
+        key = session.scalar(select(APIKey).where(APIKey.id == "key_buyer"))
+        key.scopes = ["reservations:write"]
+    denied = client.get("/v1/reservations", headers=auth(token))
+    assert denied.status_code == 403
+
+    with factory.begin() as session:
+        key = session.scalar(select(APIKey).where(APIKey.id == "key_buyer"))
+        key.scopes = ["reservations:read"]
     missing = client.get("/v1/reservations/rsv_other", headers=auth(token))
     assert missing.status_code == 404
