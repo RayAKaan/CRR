@@ -24,6 +24,8 @@ def upgrade() -> None:
         sa.Column("id", sa.String(length=80), nullable=False),
         sa.Column("organization_id", sa.String(length=80), nullable=False),
         sa.Column("agreement_id", sa.String(length=80), nullable=False),
+        sa.Column("opportunity_id", sa.String(length=80), nullable=False),
+        sa.Column("route_candidate_id", sa.String(length=120), nullable=False),
         sa.Column("resource_id", sa.String(length=80), nullable=False),
         sa.Column("resource_state_id", sa.String(length=80), nullable=False),
         sa.Column("resource_version", sa.Integer(), nullable=False),
@@ -45,6 +47,10 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["organization_id", "agreement_id"],
             ["agreements.organization_id", "agreements.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["organization_id", "opportunity_id"],
+            ["opportunities.organization_id", "opportunities.id"],
         ),
         sa.ForeignKeyConstraint(
             ["organization_id", "resource_id"],
