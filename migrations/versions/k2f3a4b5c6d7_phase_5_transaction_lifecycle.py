@@ -7,8 +7,8 @@ Create Date: 2026-11-03
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 from crr.models import AwareDateTime
 
