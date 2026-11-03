@@ -1107,3 +1107,13 @@ The reference implementation exposes:
 - `PATCH /v1/agreements/{id}` for explicit cancellation or termination by a participating actor, or expiry by a principal with `agreements:expire`; all mutations require `If-Match` and `Idempotency-Key`.
 
 Agreement creation requires an accepted Offer and a matching outbox event attributed to the Offer recipient. It snapshots the exact accepted terms. Creation and lifecycle changes emit transactional outbox events. The Agreement API does not reserve resources, create Transactions, initiate payments, or record execution.
+
+
+## Reservation API
+
+- `POST /v1/reservations` requires `reservations:write` and an `Idempotency-Key`. The request supplies an Agreement ID, the Opportunity's source ResourceState ID and version, exact decimal quantity/unit/registry version, and a timezone-aware expiry.
+- Reservation creation is permitted only for an active Agreement participant and the accepted Opportunity's current source ResourceState. The Agreement's accepted Offer quantity and the source ResourceState quantity are both hard allocation bounds.
+- `GET /v1/reservations` and `GET /v1/reservations/{id}` require `reservations:read` and are tenant-scoped.
+- `PATCH /v1/reservations/{id}` requires `reservations:write`, `If-Match`, and an `Idempotency-Key`. An Agreement participant may release; expiry requires `reservations:expire`.
+- PostgreSQL allocation serializes on the owning Resource row and recomputes active holds within the same transaction. ResourceState transitions lock that same row and reject while active holds exist.
+- Reservations are allocation holds only. They do not mutate ResourceState or imply custody transfer, execution, payment, or delivery.

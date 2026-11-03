@@ -138,9 +138,15 @@ def validate_reservation_capacity(
     agreement_quantity: Quantity,
     state_quantity: Quantity,
     already_reserved: Quantity,
+    already_reserved_for_agreement: Quantity,
 ) -> None:
     """Reject incompatible units and allocations exceeding either commercial or physical bounds."""
-    quantities = (agreement_quantity, state_quantity, already_reserved)
+    quantities = (
+        agreement_quantity,
+        state_quantity,
+        already_reserved,
+        already_reserved_for_agreement,
+    )
     if any(
         (item.unit, item.unit_registry_version) != (requested.unit, requested.unit_registry_version)
         for item in quantities
@@ -150,7 +156,9 @@ def validate_reservation_capacity(
         raise DomainError("A reservation quantity must be greater than zero.")
     if requested.value > agreement_quantity.value:
         raise DomainError("Reservation quantity cannot exceed the agreed quantity.")
-    if already_reserved.value < Decimal("0"):
+    if already_reserved.value < Decimal("0") or already_reserved_for_agreement.value < Decimal("0"):
         raise DomainError("Existing active reservations cannot be negative.")
+    if already_reserved_for_agreement.value + requested.value > agreement_quantity.value:
+        raise DomainError("Active Reservations would exceed the agreed quantity.")
     if already_reserved.value + requested.value > state_quantity.value:
         raise DomainError("Reservation would exceed the unreserved ResourceState quantity.")
