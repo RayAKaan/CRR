@@ -31,7 +31,6 @@ from crr.models import (
     StateTransition,
 )
 from crr.reservation_model import Reservation as ReservationRecord
-import crr.transaction_model
 from crr.schemas import (
     ActorCreate,
     LocationCreate,
@@ -39,6 +38,7 @@ from crr.schemas import (
     ResourceStateCreate,
     ResourceStateTransitionCreate,
 )
+from crr.transaction_model import Transaction as _TransactionModel
 from crr.unit_registry import load_unit_registry
 
 bearer = HTTPBearer(auto_error=False)
