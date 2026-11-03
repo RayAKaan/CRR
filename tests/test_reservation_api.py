@@ -233,9 +233,7 @@ def test_create_reservation_is_idempotent_and_audited():
     fetched = client.get(f"/v1/reservations/{item['id']}", headers=auth(token))
     assert fetched.status_code == 200
     with engine.connect() as connection:
-        record = connection.execute(
-            select(Reservation).where(Reservation.id == item["id"])
-        ).one()
+        record = connection.execute(select(Reservation).where(Reservation.id == item["id"])).one()
         event = connection.execute(
             select(OutboxEvent).where(OutboxEvent.aggregate_id == item["id"])
         ).one()
@@ -308,8 +306,7 @@ def test_release_is_versioned_and_frees_allocation():
     released = client.patch(
         f"/v1/reservations/{reservation_id}",
         json={"status": "RELEASED"},
-        headers=auth(token, "reservation-release")
-        | {"If-Match": '"version-1"'},
+        headers=auth(token, "reservation-release") | {"If-Match": '"version-1"'},
     )
     assert released.status_code == 200, released.text
     assert released.json()["data"]["status"] == "RELEASED"
@@ -395,8 +392,7 @@ def test_reserved_resource_state_cannot_be_physically_transitioned():
             "location_id": "loc_a",
             "provenance": {"source_type": "TEST"},
         },
-        headers=auth(token, "resource-transition-blocked")
-        | {"If-Match": '"version-1"'},
+        headers=auth(token, "resource-transition-blocked") | {"If-Match": '"version-1"'},
     )
     assert transition.status_code == 409
     assert transition.json()["error"]["code"] == "RESOURCE_STATE_RESERVED"
