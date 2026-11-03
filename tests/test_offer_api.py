@@ -55,6 +55,18 @@ def make_client(org_id: str = "org_a", scopes: list[str] | None = None):
                 created_at=NOW,
             )
         )
+        recipient_token = "recipient-secret"
+        session.add(
+            APIKey(
+                id=f"key_{org_id}_recipient",
+                organization_id=org_id,
+                actor_id=f"act_{org_id}_recipient",
+                secret_hash=sha256(recipient_token.encode()).hexdigest(),
+                scopes=scopes or ["admin:*"],
+                revoked=False,
+                created_at=NOW,
+            )
+        )
     return TestClient(create_app(factory)), token, engine
 
 
@@ -193,10 +205,19 @@ def test_offer_lifecycle_requires_etag_and_rejects_terminal_reopen():
         headers=auth(token) | {"Idempotency-Key": "offer-open", "If-Match": '"version-1"'},
     )
     assert opened.status_code == 200
+    proposer_accept = client.patch(
+        "/v1/offers/off_org_a",
+        json={"status": "ACCEPTED"},
+        headers=auth(token)
+        | {"Idempotency-Key": "offer-proposer-accept", "If-Match": '"version-2"'},
+    )
+    assert proposer_accept.status_code == 403
+
     accepted = client.patch(
         "/v1/offers/off_org_a",
         json={"status": "ACCEPTED"},
-        headers=auth(token) | {"Idempotency-Key": "offer-accept", "If-Match": '"version-2"'},
+        headers=auth("recipient-secret")
+        | {"Idempotency-Key": "offer-accept", "If-Match": '"version-2"'},
     )
     assert accepted.status_code == 200
     illegal = client.patch(

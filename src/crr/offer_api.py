@@ -484,6 +484,30 @@ def transition_offer(
     item = _find(session, offer_id, principal.organization_id)
     if item is None:
         _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Offer not found.")
+    if body.status in {"ACCEPTED", "REJECTED"} and principal.actor_id != item.recipient_actor_id:
+        _fail(
+            request,
+            403,
+            "RECIPIENT_ACTION_REQUIRED",
+            "AUTHORIZATION_FAILURE",
+            "Only the Offer recipient may accept or reject an Offer.",
+        )
+    if body.status == "WITHDRAWN" and principal.actor_id != item.proposer_actor_id:
+        _fail(
+            request,
+            403,
+            "PROPOSER_ACTION_REQUIRED",
+            "AUTHORIZATION_FAILURE",
+            "Only the Offer proposer may withdraw an Offer.",
+        )
+    if body.status == "ACCEPTED" and datetime.now(UTC) >= item.valid_until:
+        _fail(
+            request,
+            409,
+            "OFFER_EXPIRED",
+            "DOMAIN_CONFLICT",
+            "An expired Offer cannot be accepted.",
+        )
     expected = f'"version-{item.version}"'
     if if_match != expected:
         _fail(
