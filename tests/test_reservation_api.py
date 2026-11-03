@@ -523,17 +523,19 @@ def test_transaction_creation_is_idempotent_and_links_complete_reservation_set()
         transaction = connection.execute(
             select(Transaction).where(Transaction.id == data["id"])
         ).one()
-        linked = connection.execute(
-            select(transaction_reservations.c.reservation_id).where(
-                transaction_reservations.c.transaction_id == data["id"]
+        linked = (
+            connection.execute(
+                select(transaction_reservations.c.reservation_id).where(
+                    transaction_reservations.c.transaction_id == data["id"]
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         event = connection.execute(
             select(OutboxEvent).where(OutboxEvent.aggregate_id == data["id"])
         ).one()
-        state = connection.execute(
-            select(ResourceState).where(ResourceState.id == "rst_a")
-        ).one()
+        state = connection.execute(select(ResourceState).where(ResourceState.id == "rst_a")).one()
     assert transaction.status == "AGREED"
     assert set(linked) == set(reservation_ids)
     assert event.event_type == "transaction.created"
@@ -649,9 +651,13 @@ def test_transaction_lifecycle_resolves_disputes_and_cancels_allocations_atomica
     assert cancelled.json()["data"]["version"] == 5
 
     with engine.connect() as connection:
-        reservation_statuses = connection.execute(
-            select(Reservation.status).where(Reservation.id.in_(reservation_ids))
-        ).scalars().all()
+        reservation_statuses = (
+            connection.execute(
+                select(Reservation.status).where(Reservation.id.in_(reservation_ids))
+            )
+            .scalars()
+            .all()
+        )
         released_events = connection.execute(
             select(OutboxEvent).where(
                 OutboxEvent.aggregate_type == "Reservation",
