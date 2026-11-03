@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 from crr.domain.errors import DomainError
 from crr.domain.execution import Execution as DomainExecution
 from crr.domain.execution import ExecutionStatus
+from crr.domain.execution_operations import ExecutionException as DomainException
 from crr.domain.execution_operations import (
-    ExecutionException as DomainException,
     ExecutionExceptionResolution as DomainResolution,
     ExecutionOperation as DomainOperation,
     ExecutionOperationType,
@@ -575,7 +575,13 @@ def plan_execution_operation(
         return _replay(session, response, request, prior, principal.organization_id)
     item = _locked_execution(session, execution_id, principal.organization_id, request, if_match)
     if item.status not in {ExecutionStatus.PLANNED.value, ExecutionStatus.IN_PROGRESS.value}:
-        _fail(request, 409, "EXECUTION_NOT_PLANNABLE", "DOMAIN_CONFLICT", "Execution cannot accept plans.")
+        _fail(
+            request,
+            409,
+            "EXECUTION_NOT_PLANNABLE",
+            "DOMAIN_CONFLICT",
+            "Execution cannot accept plans.",
+        )
     now = datetime.now(UTC)
     quantity_value, quantity_unit, registry = _quantity_fields(body, request)
     domain = DomainOperation(
@@ -652,7 +658,13 @@ def report_execution_operation(
         return _replay(session, response, request, prior, principal.organization_id)
     item = _locked_execution(session, execution_id, principal.organization_id, request, if_match)
     if item.status not in {ExecutionStatus.PLANNED.value, ExecutionStatus.IN_PROGRESS.value}:
-        _fail(request, 409, "EXECUTION_NOT_REPORTABLE", "DOMAIN_CONFLICT", "Execution cannot accept reports.")
+        _fail(
+            request,
+            409,
+            "EXECUTION_NOT_REPORTABLE",
+            "DOMAIN_CONFLICT",
+            "Execution cannot accept reports.",
+        )
     planned = session.scalar(
         select(OperationRecord).where(
             OperationRecord.id == body.planned_operation_id,
@@ -662,7 +674,13 @@ def report_execution_operation(
         )
     )
     if planned is None:
-        _fail(request, 404, "PLANNED_OPERATION_NOT_FOUND", "NOT_FOUND", "Planned operation not found.")
+        _fail(
+            request,
+            404,
+            "PLANNED_OPERATION_NOT_FOUND",
+            "NOT_FOUND",
+            "Planned operation not found.",
+        )
     quantity_value, quantity_unit, registry = _quantity_fields(body, request)
     now = datetime.now(UTC)
     reported = DomainOperation(
@@ -757,7 +775,13 @@ def create_execution_exception(
         return _replay(session, response, request, prior, principal.organization_id)
     item = _locked_execution(session, execution_id, principal.organization_id, request, if_match)
     if item.status in {ExecutionStatus.CLOSED.value, ExecutionStatus.CANCELLED.value}:
-        _fail(request, 409, "EXECUTION_TERMINAL", "DOMAIN_CONFLICT", "Terminal Execution cannot accept exceptions.")
+        _fail(
+            request,
+            409,
+            "EXECUTION_TERMINAL",
+            "DOMAIN_CONFLICT",
+            "Terminal Execution cannot accept exceptions.",
+        )
     now = datetime.now(UTC)
     exception = DomainException(
         id=f"exc_{uuid4().hex}",
@@ -833,7 +857,13 @@ def resolve_execution_exception(
         )
     )
     if existing is not None:
-        _fail(request, 409, "EXCEPTION_ALREADY_RESOLVED", "DOMAIN_CONFLICT", "Exception already has a resolution.")
+        _fail(
+            request,
+            409,
+            "EXCEPTION_ALREADY_RESOLVED",
+            "DOMAIN_CONFLICT",
+            "Exception already has a resolution.",
+        )
     now = datetime.now(UTC)
     resolution = DomainResolution(
         id=f"exr_{uuid4().hex}",
@@ -923,7 +953,13 @@ def correct_execution_operation(
         )
     )
     if original is None:
-        _fail(request, 404, "REPORTED_OPERATION_NOT_FOUND", "NOT_FOUND", "Reported operation not found.")
+        _fail(
+            request,
+            404,
+            "REPORTED_OPERATION_NOT_FOUND",
+            "NOT_FOUND",
+            "Reported operation not found.",
+        )
     quantity_value, quantity_unit, registry = _quantity_fields(body, request)
     now = datetime.now(UTC)
     correction = DomainOperation(
