@@ -6,12 +6,12 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    JSON,
     Column,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
     Integer,
-    JSON,
     PrimaryKeyConstraint,
     String,
     Table,
