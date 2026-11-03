@@ -40,7 +40,7 @@ def make_transaction(**overrides) -> Transaction:
 
 def test_transaction_preserves_exact_commercial_terms_and_reservation_links():
     transaction = make_transaction()
-    assert transaction.status is TransactionStatus.COMMITTED
+    assert transaction.status is TransactionStatus.AGREED
     assert transaction.quantity.value == Decimal("10.250")
     assert transaction.price == Decimal("125.50")
     assert transaction.reservation_ids == ("rsv_1", "rsv_2")
