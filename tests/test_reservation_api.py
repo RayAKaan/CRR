@@ -965,17 +965,20 @@ def test_execution_close_is_operational_not_verified_and_cancel_is_pre_execution
     )
     assert blocked_plan.status_code == 409
 
-    cancel_transaction = create_scheduled_transaction(client, token, "execution-cancel")
-    planned_execution = client.post(
+    cancel_client, cancel_token, _ = reservation_fixture()
+    cancel_transaction = create_scheduled_transaction(
+        cancel_client, cancel_token, "execution-cancel"
+    )
+    planned_execution = cancel_client.post(
         "/v1/executions",
         json={"transaction_id": cancel_transaction},
-        headers=auth(token, "execution-cancel-create"),
+        headers=auth(cancel_token, "execution-cancel-create"),
     )
     cancel_id = planned_execution.json()["data"]["id"]
-    cancelled = client.post(
+    cancelled = cancel_client.post(
         f"/v1/executions/{cancel_id}/cancel",
         json={"reason": "Parties cancelled before physical work began"},
-        headers=auth(token, "execution-cancel-finalize") | {"If-Match": '"version-1"'},
+        headers=auth(cancel_token, "execution-cancel-finalize") | {"If-Match": '"version-1"'},
     )
     assert cancelled.status_code == 200, cancelled.text
     assert cancelled.json()["data"]["status"] == "CANCELLED"
