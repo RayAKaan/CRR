@@ -104,7 +104,6 @@ class Transaction:
         if self.organization_id != organization_id:
             raise TenantBoundaryError("Transaction belongs to another organization.")
 
-
     def schedule(
         self,
         *,
