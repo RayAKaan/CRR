@@ -80,6 +80,8 @@ def reservation_fixture(state_quantity: str = "20.000"):
                     "execution:correct",
                     "executions:exceptions:write",
                     "executions:exceptions:resolve",
+                    "executions:close",
+                    "executions:cancel",
                 ],
                 revoked=False,
                 created_at=NOW,
@@ -913,3 +915,89 @@ def test_execution_exceptions_and_corrections_are_append_only_and_authorized():
     assert operations[2]["correction_reason"] == (
         "Corrected measured quantity from signed scale ticket"
     )
+
+
+def test_execution_close_is_operational_not_verified_and_cancel_is_pre_execution_only():
+    client, token, engine = reservation_fixture()
+    transaction_id = create_scheduled_transaction(client, token, "execution-close")
+    created = client.post(
+        "/v1/executions",
+        json={"transaction_id": transaction_id},
+        headers=auth(token, "execution-close-create"),
+    )
+    execution_id = created.json()["data"]["id"]
+    plan = client.post(
+        f"/v1/executions/{execution_id}/operations/planned",
+        json={
+            "operation_type": "PICKUP",
+            "planned_for": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
+        },
+        headers=auth(token, "execution-close-plan") | {"If-Match": '"version-1"'},
+    )
+    plan_id = plan.json()["data"]["operations"][0]["id"]
+    reported = client.post(
+        f"/v1/executions/{execution_id}/operations/reported",
+        json={
+            "planned_operation_id": plan_id,
+            "occurred_at": datetime.now(UTC).isoformat(),
+        },
+        headers=auth(token, "execution-close-report") | {"If-Match": '"version-2"'},
+    )
+    assert reported.status_code == 201, reported.text
+    closed = client.post(
+        f"/v1/executions/{execution_id}/close",
+        json={"reason": "Operational handling completed at the facility"},
+        headers=auth(token, "execution-close-finalize") | {"If-Match": '"version-3"'},
+    )
+    assert closed.status_code == 200, closed.text
+    assert closed.json()["data"]["status"] == "CLOSED"
+    assert closed.json()["data"]["provenance"]["verification_status"] == "NOT_VERIFIED"
+
+    blocked_plan = client.post(
+        f"/v1/executions/{execution_id}/operations/planned",
+        json={
+            "operation_type": "DELIVERY",
+            "planned_for": (datetime.now(UTC) + timedelta(days=2)).isoformat(),
+        },
+        headers=auth(token, "execution-after-close") | {"If-Match": '"version-4"'},
+    )
+    assert blocked_plan.status_code == 409
+
+    cancel_transaction = create_scheduled_transaction(client, token, "execution-cancel")
+    planned_execution = client.post(
+        "/v1/executions",
+        json={"transaction_id": cancel_transaction},
+        headers=auth(token, "execution-cancel-create"),
+    )
+    cancel_id = planned_execution.json()["data"]["id"]
+    cancelled = client.post(
+        f"/v1/executions/{cancel_id}/cancel",
+        json={"reason": "Parties cancelled before physical work began"},
+        headers=auth(token, "execution-cancel-finalize") | {"If-Match": '"version-1"'},
+    )
+    assert cancelled.status_code == 200, cancelled.text
+    assert cancelled.json()["data"]["status"] == "CANCELLED"
+
+    with engine.connect() as connection:
+        state = connection.execute(select(ResourceState).where(ResourceState.id == "rst_a")).one()
+    assert state.quantity_value == Decimal("20.000")
+    assert state.resource_version == 1
+
+
+def test_execution_create_requires_scheduled_transaction_and_scope():
+    client, token, _ = reservation_fixture()
+    reservation_ids = create_full_transaction_reservations(client, token)
+    created = client.post(
+        "/v1/transactions",
+        json={"agreement_id": "agr_a", "reservation_ids": reservation_ids},
+        headers=auth(token, "execution-unscheduled-transaction"),
+    )
+    assert created.status_code == 201
+    transaction_id = created.json()["data"]["id"]
+    unscheduled = client.post(
+        "/v1/executions",
+        json={"transaction_id": transaction_id},
+        headers=auth(token, "execution-unscheduled-create"),
+    )
+    assert unscheduled.status_code == 409
+    assert unscheduled.json()["error"]["code"] == "TRANSACTION_NOT_SCHEDULED"
