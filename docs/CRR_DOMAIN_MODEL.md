@@ -623,11 +623,15 @@ DISCOVERED
  → COMPLETED
  → VERIFIED
 
-AGREED / SCHEDULED → DISPUTED → SCHEDULED
-AGREED / SCHEDULED / DISPUTED → CANCELLED
+AGREED → SCHEDULED | DISPUTED | CANCELLED
+SCHEDULED → DISPUTED | CANCELLED
+DISPUTED → SCHEDULED | CANCELLED
+CANCELLED → (terminal)
 ```
 
-`COMPLETED` means the protocol considers the transaction execution complete. `VERIFIED` means the required evidence has been accepted.
+The Phase 5 reference implementation creates a Transaction at `AGREED` only when active, unexpired Reservations exactly cover the accepted Agreement quantity. Scheduling records a future planned instant. A party may dispute or cancel an active commercial commitment; resolving a dispute returns it to `SCHEDULED` with an explicit future schedule and resolution note. Active Transactions protect their Agreement and linked Reservations from independent lifecycle changes. Cancellation is terminal.
+
+`EXECUTING`, `COMPLETED`, and `VERIFIED` are reserved for later execution and verification phases. `COMPLETED` means the protocol considers the transaction execution complete. `VERIFIED` means the required evidence has been accepted.
 
 ---
 
