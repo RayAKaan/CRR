@@ -168,9 +168,7 @@ def validate_reported_operation(
         raise DomainError("Reported operation cannot precede its plan.")
     if any(item.sequence == reported_operation.sequence for item in prior_reported_operations):
         raise DomainError("Execution operation sequence has already been reported.")
-    if any(
-        item.planned_operation_id == planned_operation.id for item in prior_reported_operations
-    ):
+    if any(item.planned_operation_id == planned_operation.id for item in prior_reported_operations):
         raise DomainError("The planned milestone has already been reported.")
     if (
         reported_operation.quantity is not None
