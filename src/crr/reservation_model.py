@@ -23,9 +23,7 @@ class Reservation(Base):
     organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False)
     agreement_id: Mapped[str] = mapped_column(ForeignKey("agreements.id"), nullable=False)
     resource_id: Mapped[str] = mapped_column(ForeignKey("resources.id"), nullable=False)
-    resource_state_id: Mapped[str] = mapped_column(
-        ForeignKey("resource_states.id"), nullable=False
-    )
+    resource_state_id: Mapped[str] = mapped_column(ForeignKey("resource_states.id"), nullable=False)
     resource_version: Mapped[int] = mapped_column(Integer, nullable=False)
     quantity_value: Mapped[Decimal] = mapped_column(ExactDecimal(), nullable=False)
     quantity_unit: Mapped[str] = mapped_column(String(80), nullable=False)
