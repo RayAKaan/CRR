@@ -38,10 +38,22 @@ def upgrade() -> None:
         sa.Column("updated_at", AwareDateTime(), nullable=False),
         sa.Column("provenance", sa.JSON(), nullable=False),
         sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"]),
-        sa.ForeignKeyConstraint(["agreement_id"], ["agreements.id"]),
-        sa.ForeignKeyConstraint(["resource_id"], ["resources.id"]),
-        sa.ForeignKeyConstraint(["resource_state_id"], ["resource_states.id"]),
-        sa.ForeignKeyConstraint(["created_by"], ["actors.id"]),
+        sa.ForeignKeyConstraint(
+            ["organization_id", "agreement_id"],
+            ["agreements.organization_id", "agreements.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["organization_id", "resource_id"],
+            ["resources.organization_id", "resources.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["organization_id", "resource_state_id"],
+            ["resource_states.organization_id", "resource_states.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["organization_id", "created_by"],
+            ["actors.organization_id", "actors.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("organization_id", "id"),
     )
