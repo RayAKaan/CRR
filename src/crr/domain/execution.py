@@ -159,7 +159,9 @@ class Execution:
         if self.status is not ExecutionStatus.PLANNED:
             raise DomainError("Only a PLANNED Execution can be cancelled.")
         if has_reported_operations:
-            raise DomainError("Execution cannot be cancelled after an actual operation is reported.")
+            raise DomainError(
+                "Execution cannot be cancelled after an actual operation is reported."
+            )
         if has_unresolved_exceptions:
             raise DomainError("Execution cannot be cancelled while exceptions remain unresolved.")
         return replace(
