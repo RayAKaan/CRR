@@ -246,10 +246,7 @@ class Transaction:
                         )
                     else:
                         bound_datetime = datetime.fromisoformat(raw)
-                        if (
-                            bound_datetime.tzinfo is None
-                            or bound_datetime.utcoffset() is None
-                        ):
+                        if bound_datetime.tzinfo is None or bound_datetime.utcoffset() is None:
                             raise ValueError("Timing datetime must include a timezone.")
                         valid = (
                             scheduled_for >= bound_datetime
