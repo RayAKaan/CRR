@@ -408,10 +408,7 @@ def transition_agreement(
     )
     try:
         if body.status == "EXPIRED":
-            if (
-                "agreements:expire" not in principal.scopes
-                and "admin:*" not in principal.scopes
-            ):
+            if "agreements:expire" not in principal.scopes and "admin:*" not in principal.scopes:
                 _fail(
                     request,
                     403,
