@@ -64,7 +64,12 @@ def reservation_fixture(state_quantity: str = "20.000"):
                 organization_id="org_a",
                 actor_id="act_buyer",
                 secret_hash=sha256(token.encode()).hexdigest(),
-                scopes=["reservations:read", "reservations:write", "reservations:expire"],
+                scopes=[
+                    "reservations:read",
+                    "reservations:write",
+                    "reservations:expire",
+                    "resources:write",
+                ],
                 revoked=False,
                 created_at=NOW,
             )
@@ -365,3 +370,33 @@ def test_reservation_reads_are_tenant_scoped_and_require_scope():
         key.scopes = ["reservations:read"]
     missing = client.get("/v1/reservations/rsv_other", headers=auth(token))
     assert missing.status_code == 404
+
+
+def test_reserved_resource_state_cannot_be_physically_transitioned():
+    client, token, _ = reservation_fixture()
+    created = client.post(
+        "/v1/reservations",
+        json=payload("5.000"),
+        headers=auth(token, "reservation-locks-state"),
+    )
+    assert created.status_code == 201, created.text
+    transition = client.post(
+        "/v1/resource-states/rst_a/transitions",
+        json={
+            "kind": "PHYSICAL_CHANGE",
+            "reason": "Attempted consumption while quantity is reserved",
+            "occurred_at": (datetime.now(UTC) + timedelta(minutes=1)).isoformat(),
+            "state_type": "ALUMINUM_INGOT",
+            "quantity": {
+                "value": "4.000",
+                "unit": "t",
+                "unit_registry_version": "CRR-UNITS-0.1",
+            },
+            "location_id": "loc_a",
+            "provenance": {"source_type": "TEST"},
+        },
+        headers=auth(token, "resource-transition-blocked")
+        | {"If-Match": '"version-1"'},
+    )
+    assert transition.status_code == 409
+    assert transition.json()["error"]["code"] == "RESOURCE_STATE_RESERVED"
