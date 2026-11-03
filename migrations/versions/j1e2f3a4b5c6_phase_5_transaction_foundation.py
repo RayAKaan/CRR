@@ -32,7 +32,7 @@ def upgrade() -> None:
         sa.Column("quantity_value", ExactDecimal(), nullable=False),
         sa.Column("quantity_unit", sa.String(length=80), nullable=False),
         sa.Column("unit_registry_version", sa.String(length=80), nullable=False),
-        sa.Column("price", sa.Numeric(), nullable=False),
+        sa.Column("price", ExactDecimal(), nullable=False),
         sa.Column("currency", sa.String(length=3), nullable=False),
         sa.Column("terms_snapshot", sa.Text(), nullable=False),
         sa.Column("status", sa.String(length=32), nullable=False),
