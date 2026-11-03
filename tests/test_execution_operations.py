@@ -54,9 +54,7 @@ def make_execution() -> Execution:
         provenance={"source": "test"},
         scheduled_for=NOW + timedelta(days=1),
     )
-    return Execution.from_transaction(
-        transaction, execution_id="exe_1", actor_id="buyer", at=NOW
-    )
+    return Execution.from_transaction(transaction, execution_id="exe_1", actor_id="buyer", at=NOW)
 
 
 def operation(
