@@ -1,6 +1,6 @@
 # CRR Phase 4C — Agreement Foundation
 
-**Status:** In progress  
+**Status:** In progress — domain contract and lifecycle increments implemented; persistence/API closure pending  
 **Base:** Phase 4B Offer Foundation on `main`
 
 ## Objective
