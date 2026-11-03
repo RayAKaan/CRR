@@ -325,6 +325,14 @@ def create_reservation(
             "DOMAIN_CONFLICT",
             "The source Opportunity no longer matches the accepted Offer.",
         )
+    if opportunity.status != "OPEN":
+        _fail(
+            request,
+            409,
+            "OPPORTUNITY_NOT_ACTIVE",
+            "DOMAIN_CONFLICT",
+            "Reservations require an active source Opportunity.",
+        )
     if opportunity.source_resource_state_id != body.resource_state_id:
         _fail(
             request,
@@ -365,6 +373,11 @@ def create_reservation(
             "CONCURRENCY_FAILURE",
             "Reservation must reference the current ResourceState version.",
         )
+
+    # A concurrent retry may have committed while this request waited for the Resource lock.
+    prior = _idempotency(session, principal.organization_id, idempotency_key, digest, request)
+    if prior:
+        return _replay(session, response, request, prior, principal.organization_id)
 
     now = datetime.now(UTC)
     agreement_quantity, valid_from, valid_until = _agreement_quantity(agreement, request)
