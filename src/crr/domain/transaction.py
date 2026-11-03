@@ -105,7 +105,9 @@ class Transaction:
             snapshot_registry = snapshot_quantity["unit_registry_version"]
             snapshot_currency = terms["currency"]
         except (KeyError, TypeError, ValueError, InvalidOperation) as exc:
-            raise DomainError("Transaction terms snapshot is missing valid commercial terms.") from exc
+            raise DomainError(
+                "Transaction terms snapshot is missing valid commercial terms."
+            ) from exc
         if (
             snapshot_value != self.quantity.value
             or snapshot_unit != self.quantity.unit
@@ -113,7 +115,9 @@ class Transaction:
             or snapshot_price != self.price
             or snapshot_currency != self.currency
         ):
-            raise DomainError("Transaction fields must match the immutable accepted terms snapshot.")
+            raise DomainError(
+                "Transaction fields must match the immutable accepted terms snapshot."
+            )
         for value in (self.created_at, self.updated_at):
             if value.tzinfo is None or value.utcoffset() is None:
                 raise DomainError("Transaction timestamps must be timezone-aware.")
@@ -229,7 +233,9 @@ class Transaction:
                 if raw is None:
                     continue
                 if not isinstance(raw, str) or not raw:
-                    raise DomainError(f"Accepted timing term {key} must be an ISO date or datetime.")
+                    raise DomainError(
+                        f"Accepted timing term {key} must be an ISO date or datetime."
+                    )
                 try:
                     if "T" not in raw and " " not in raw:
                         bound_date = date.fromisoformat(raw)
