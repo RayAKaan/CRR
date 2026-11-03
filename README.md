@@ -973,3 +973,18 @@ python -m uvicorn crr.api:app --reload
 ```
 
 The bootstrap command applies Alembic migrations, creates the initial organization administrator, stores only a hash of the generated API key, and prints the secret once. Set `CRR_DATABASE_URL` before starting either command to select PostgreSQL or another configured SQLAlchemy database.
+
+
+## Physical Execution API
+
+A scheduled Transaction participant can create one tenant-scoped Execution using `POST /v1/executions` with an `Idempotency-Key`. The server derives its Agreement, Resource, ResourceState version, route, quantity and schedule from the scheduled Transaction; clients cannot provide or override those values.
+
+Execution endpoints:
+- `GET /v1/executions` and `GET /v1/executions/{id}` — tenant-scoped list and detail.
+- `POST /v1/executions/{id}/operations/planned` — append a timezone-aware planned milestone.
+- `POST /v1/executions/{id}/operations/reported` — append an attributed actual report linked to exactly one planned milestone.
+- `POST /v1/executions/{id}/exceptions` and `POST /v1/executions/{id}/exceptions/{exception_id}/resolution` — append an exception and its resolution.
+- `POST /v1/executions/{id}/corrections` — append a superseding report; the original remains immutable.
+- `POST /v1/executions/{id}/lifecycle` — close after operational reports with no unresolved exceptions, or cancel only before any actual report.
+
+Every mutation requires an `Idempotency-Key` and `If-Match: "version-N"`; actor scopes are checked per operation. Planned milestones and reported actuals remain distinct. A report is an attributable operational claim, not independent evidence or verification. Execution operations do not mutate ResourceState, Reservations, ownership or custody and do not dispatch carriers, transfer title, settle payments or assert verified delivery.
