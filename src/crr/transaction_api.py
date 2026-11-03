@@ -18,8 +18,8 @@ from crr.domain.errors import DomainError
 from crr.domain.quantity import Quantity, exact_decimal
 from crr.domain.reservation import Reservation as DomainReservation
 from crr.domain.reservation import ReservationStatus
+from crr.domain.transaction import Transaction as DomainTransaction
 from crr.domain.transaction import (
-    Transaction as DomainTransaction,
     TransactionStatus,
     validate_transaction_reservation_coverage,
 )
@@ -27,7 +27,8 @@ from crr.models import IdempotencyRecord, OutboxEvent, Resource, ResourceState
 from crr.offer_model import Offer
 from crr.opportunity_model import Opportunity
 from crr.reservation_model import Reservation as ReservationRecord
-from crr.transaction_model import Transaction as TransactionRecord, transaction_reservations
+from crr.transaction_model import Transaction as TransactionRecord
+from crr.transaction_model import transaction_reservations
 from crr.transaction_schemas import TransactionCreate, TransactionLifecycleInput
 
 router = APIRouter()
