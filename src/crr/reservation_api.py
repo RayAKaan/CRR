@@ -26,6 +26,7 @@ from crr.offer_model import Offer
 from crr.opportunity_model import Opportunity
 from crr.reservation_model import Reservation as ReservationRecord
 from crr.reservation_schemas import ReservationCreate, ReservationLifecycleInput
+from crr.transaction_model import Transaction, transaction_reservations
 
 router = APIRouter()
 
@@ -602,6 +603,28 @@ def transition_reservation(
             "AGREEMENT_MISSING",
             "DOMAIN_CONFLICT",
             "Reservation Agreement reference is unavailable.",
+        )
+    active_transaction = session.scalar(
+        select(Transaction)
+        .join(
+            transaction_reservations,
+            (transaction_reservations.c.organization_id == Transaction.organization_id)
+            & (transaction_reservations.c.transaction_id == Transaction.id),
+        )
+        .where(
+            transaction_reservations.c.organization_id == principal.organization_id,
+            transaction_reservations.c.reservation_id == item.id,
+            Transaction.status != "CANCELLED",
+        )
+        .limit(1)
+    )
+    if active_transaction is not None:
+        _fail(
+            request,
+            409,
+            "RESERVATION_BOUND_TO_TRANSACTION",
+            "DOMAIN_CONFLICT",
+            "An active Transaction protects this Reservation from release or expiry.",
         )
     if body.status == "RELEASED":
         if principal.actor_id not in {agreement.proposer_actor_id, agreement.recipient_actor_id}:

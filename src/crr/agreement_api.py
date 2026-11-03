@@ -19,6 +19,7 @@ from crr.domain.agreement import AgreementStatus
 from crr.domain.errors import DomainError
 from crr.models import IdempotencyRecord, OutboxEvent
 from crr.offer_model import Offer
+from crr.transaction_model import Transaction
 
 router = APIRouter()
 
@@ -382,6 +383,23 @@ def transition_agreement(
     item = _find(session, agreement_id, principal.organization_id)
     if item is None:
         _fail(request, 404, "NOT_FOUND", "NOT_FOUND", "Agreement not found.")
+    active_transaction = session.scalar(
+        select(Transaction.id)
+        .where(
+            Transaction.organization_id == principal.organization_id,
+            Transaction.agreement_id == item.id,
+            Transaction.status != "CANCELLED",
+        )
+        .limit(1)
+    )
+    if active_transaction is not None:
+        _fail(
+            request,
+            409,
+            "AGREEMENT_BOUND_TO_TRANSACTION",
+            "DOMAIN_CONFLICT",
+            "An active Transaction protects this Agreement from lifecycle changes.",
+        )
     if if_match != f'"version-{item.version}"':
         _fail(
             request,

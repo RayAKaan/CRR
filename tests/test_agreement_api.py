@@ -9,9 +9,19 @@ from sqlalchemy.pool import StaticPool
 
 from crr.agreement_model import Agreement
 from crr.api import create_app
-from crr.models import Actor, APIKey, Base, Organization, OutboxEvent
+from crr.models import (
+    Actor,
+    APIKey,
+    Base,
+    Location,
+    Organization,
+    OutboxEvent,
+    Resource,
+    ResourceState,
+)
 from crr.offer_model import Offer
 from crr.opportunity_model import Opportunity
+from crr.transaction_model import Transaction
 
 NOW = datetime(2026, 11, 3, 0, tzinfo=UTC)
 
@@ -53,6 +63,46 @@ def client_fixture():
                     created_at=NOW,
                 ),
             ]
+        )
+        session.add(
+            Location(
+                id="loc_a",
+                organization_id="org_a",
+                name="Yard",
+                provenance={"source_type": "TEST"},
+                created_at=NOW,
+            )
+        )
+        session.add(
+            Resource(
+                id="res_a",
+                organization_id="org_a",
+                resource_type="ALUMINUM",
+                version=1,
+                created_by="act_seller",
+                provenance={"source_type": "TEST"},
+                created_at=NOW,
+            )
+        )
+        session.add(
+            ResourceState(
+                id="rst_a",
+                organization_id="org_a",
+                resource_id="res_a",
+                resource_version=1,
+                state_type="ALUMINUM_SCRAP",
+                quantity_value=Decimal("20.000"),
+                unit="t",
+                unit_registry_version="CRR-UNITS-0.1",
+                location_id="loc_a",
+                effective_at=NOW,
+                recorded_at=NOW,
+                created_by="act_seller",
+                provenance={"source_type": "TEST"},
+                quality={},
+                physical_properties={},
+                predecessor_state_ids=[],
+            )
         )
         session.add(
             APIKey(
@@ -221,3 +271,49 @@ def test_agreement_expiry_requires_dedicated_scope():
     )
     assert expired.status_code == 200
     assert expired.json()["data"]["status"] == "EXPIRED"
+
+
+def test_active_transaction_prevents_agreement_lifecycle_change():
+    client, token, engine = client_fixture()
+    created = client.post(
+        "/v1/agreements",
+        json={"offer_id": "off_a"},
+        headers=headers(token, "agreement-for-transaction"),
+    )
+    assert created.status_code == 201, created.text
+    agreement_id = created.json()["data"]["id"]
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    with factory.begin() as session:
+        session.add(
+            Transaction(
+                id="txn_a",
+                organization_id="org_a",
+                agreement_id=agreement_id,
+                opportunity_id="opp_a",
+                route_candidate_id="route_a",
+                resource_id="res_a",
+                resource_state_id="rst_a",
+                resource_version=1,
+                proposer_actor_id="act_seller",
+                recipient_actor_id="act_buyer",
+                quantity_value=Decimal("10.250"),
+                quantity_unit="t",
+                unit_registry_version="CRR-UNITS-0.1",
+                price=Decimal("125.50"),
+                currency="SAR",
+                terms_snapshot='{"quantity":{"value":"10.250","unit":"t"}}',
+                status="AGREED",
+                version=1,
+                created_by="act_buyer",
+                created_at=NOW,
+                updated_at=NOW,
+                provenance={"source_type": "TEST"},
+            )
+        )
+    blocked = client.patch(
+        f"/v1/agreements/{agreement_id}",
+        json={"status": "CANCELLED"},
+        headers=headers(token, "agreement-cancel-blocked") | {"If-Match": '"version-1"'},
+    )
+    assert blocked.status_code == 409
+    assert blocked.json()["error"]["code"] == "AGREEMENT_BOUND_TO_TRANSACTION"

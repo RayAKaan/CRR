@@ -1,11 +1,16 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
 
 from crr.domain.errors import DomainError, TenantBoundaryError
 from crr.domain.quantity import Quantity
-from crr.domain.transaction import Transaction, TransactionStatus
+from crr.domain.reservation import Reservation, ReservationStatus
+from crr.domain.transaction import (
+    Transaction,
+    TransactionStatus,
+    validate_transaction_reservation_coverage,
+)
 
 NOW = datetime(2026, 11, 3, 12, tzinfo=UTC)
 
@@ -85,3 +90,181 @@ def test_transaction_requires_valid_currency_terms_and_aware_timestamps():
 def test_transaction_enforces_tenant_boundary():
     with pytest.raises(TenantBoundaryError):
         make_transaction().validate_tenant("org_other")
+
+
+def make_reservation(
+    reservation_id: str,
+    quantity: str,
+    **overrides,
+) -> Reservation:
+    values = {
+        "id": reservation_id,
+        "organization_id": "org_1",
+        "agreement_id": "agr_1",
+        "resource_id": "res_1",
+        "resource_state_id": "rst_1",
+        "resource_version": 3,
+        "quantity": Quantity(Decimal(quantity), "t", "CRR-UNITS-0.1"),
+        "status": ReservationStatus.ACTIVE,
+        "expires_at": NOW + timedelta(days=1),
+        "version": 1,
+        "created_by": "act_buyer",
+        "created_at": NOW,
+        "updated_at": NOW,
+        "provenance": {"source_type": "TEST"},
+    }
+    values.update(overrides)
+    return Reservation(**values)
+
+
+def test_transaction_schedule_dispute_resolve_and_cancel_are_versioned():
+    transaction = make_transaction()
+    scheduled_for = NOW + timedelta(days=2)
+    scheduled = transaction.schedule(
+        actor_id="act_buyer",
+        at=NOW + timedelta(minutes=1),
+        scheduled_for=scheduled_for,
+    )
+    assert scheduled.status is TransactionStatus.SCHEDULED
+    assert scheduled.scheduled_for == scheduled_for
+    assert scheduled.version == 2
+
+    disputed = scheduled.dispute(
+        actor_id="act_seller",
+        at=NOW + timedelta(minutes=2),
+        reason="Delivery window needs confirmation",
+    )
+    assert disputed.status is TransactionStatus.DISPUTED
+    assert disputed.provenance["dispute_reason"] == "Delivery window needs confirmation"
+
+    resolved = disputed.resolve(
+        actor_id="act_operator",
+        at=NOW + timedelta(minutes=3),
+        scheduled_for=NOW + timedelta(days=3),
+        resolution_note="Both parties confirmed the revised window",
+    )
+    assert resolved.status is TransactionStatus.SCHEDULED
+    assert resolved.version == 4
+    assert resolved.provenance["resolution_note"] == "Both parties confirmed the revised window"
+
+    cancelled = resolved.cancel(
+        actor_id="act_buyer",
+        at=NOW + timedelta(minutes=4),
+        reason="Parties mutually cancelled",
+    )
+    assert cancelled.status is TransactionStatus.CANCELLED
+    assert cancelled.version == 5
+    with pytest.raises(DomainError):
+        cancelled.cancel(
+            actor_id="act_buyer",
+            at=NOW + timedelta(minutes=5),
+            reason="Duplicate cancellation",
+        )
+
+
+def test_transaction_lifecycle_rejects_invalid_actor_time_and_missing_reason():
+    transaction = make_transaction()
+    scheduled = transaction.schedule(
+        actor_id="act_buyer",
+        at=NOW + timedelta(minutes=2),
+        scheduled_for=NOW + timedelta(days=1),
+    )
+    with pytest.raises(DomainError):
+        scheduled.dispute(
+            actor_id="act_buyer",
+            at=NOW + timedelta(minutes=1),
+            reason="Out-of-order dispute",
+        )
+    with pytest.raises(DomainError):
+        transaction.schedule(
+            actor_id="act_outsider",
+            at=NOW + timedelta(minutes=1),
+            scheduled_for=NOW + timedelta(days=1),
+        )
+    with pytest.raises(DomainError):
+        transaction.schedule(
+            actor_id="act_buyer",
+            at=NOW,
+            scheduled_for=NOW,
+        )
+    with pytest.raises(DomainError):
+        transaction.dispute(
+            actor_id="act_buyer",
+            at=NOW + timedelta(minutes=1),
+            reason=" ",
+        )
+    with pytest.raises(DomainError):
+        transaction.cancel(
+            actor_id="act_buyer",
+            at=NOW + timedelta(minutes=1),
+            reason=" ",
+        )
+
+
+def test_transaction_requires_schedule_in_scheduled_state():
+    with pytest.raises(DomainError):
+        make_transaction(status=TransactionStatus.SCHEDULED)
+
+
+def test_transaction_requires_exact_active_reservation_coverage():
+    reservations = [
+        make_reservation("rsv_1", "4.000"),
+        make_reservation("rsv_2", "6.250"),
+    ]
+    validate_transaction_reservation_coverage(
+        organization_id="org_1",
+        agreement_id="agr_1",
+        resource_id="res_1",
+        resource_state_id="rst_1",
+        resource_version=3,
+        agreement_status="ACTIVE",
+        agreed_quantity=Quantity(Decimal("10.250"), "t", "CRR-UNITS-0.1"),
+        reservations=reservations,
+        now=NOW,
+    )
+    with pytest.raises(DomainError):
+        validate_transaction_reservation_coverage(
+            organization_id="org_1",
+            agreement_id="agr_1",
+            resource_id="res_1",
+            resource_state_id="rst_1",
+            resource_version=3,
+            agreement_status="ACTIVE",
+            agreed_quantity=Quantity(Decimal("10.251"), "t", "CRR-UNITS-0.1"),
+            reservations=reservations,
+            now=NOW,
+        )
+
+
+def test_transaction_allocation_rejects_stale_inactive_and_cross_tenant_reservations():
+    invalid_reservations = [
+        make_reservation("rsv_state", "10.250", resource_state_id="rst_old"),
+        make_reservation("rsv_version", "10.250", resource_version=2),
+        make_reservation("rsv_released", "10.250", status=ReservationStatus.RELEASED),
+        make_reservation("rsv_tenant", "10.250", organization_id="org_other"),
+    ]
+    for reservation in invalid_reservations:
+        with pytest.raises(DomainError):
+            validate_transaction_reservation_coverage(
+                organization_id="org_1",
+                agreement_id="agr_1",
+                resource_id="res_1",
+                resource_state_id="rst_1",
+                resource_version=3,
+                agreement_status="ACTIVE",
+                agreed_quantity=Quantity(Decimal("10.250"), "t", "CRR-UNITS-0.1"),
+                reservations=[reservation],
+                now=NOW,
+            )
+    with pytest.raises(DomainError):
+        validate_transaction_reservation_coverage(
+            organization_id="org_1",
+            agreement_id="agr_1",
+            resource_id="res_1",
+            resource_state_id="rst_1",
+            resource_version=3,
+            agreement_status="CANCELLED",
+            agreed_quantity=Quantity(Decimal("10.250"), "t", "CRR-UNITS-0.1"),
+            reservations=[make_reservation("rsv_2", "10.250")],
+            now=NOW,
+        )

@@ -26,8 +26,8 @@ Create the canonical commercial Transaction that binds one accepted Agreement to
 
 | PR | Scope | State |
 |---|---|---|
-| #28 | Transaction domain contract, persistence model, Agreement/Opportunity/Resource/Reservation references and migration | In progress |
-| #29 | Transaction lifecycle, commercial obligation validation and cross-object lifecycle safeguards | Planned |
+| #28 | Transaction domain contract, persistence model, Agreement/Opportunity/Resource/Reservation references and migration | Merged |
+| #29 | Transaction lifecycle, commercial obligation validation and cross-object lifecycle safeguards | In progress |
 | #30 | Tenant-isolated Transaction API, idempotency, ETags, outbox and end-to-end integration tests | Planned |
 
 ## Lifecycle boundary
@@ -43,3 +43,13 @@ A Transaction is created in `AGREED` status only after full Reservation coverage
 - Alembic model alignment.
 - PostgreSQL migration and conformance checks.
 - Transaction domain, persistence, tenant-boundary, allocation coverage, idempotency, lifecycle and API integration tests.
+
+
+## PR #29 implementation notes
+
+- Adds the `AGREED → SCHEDULED / DISPUTED / CANCELLED` and `SCHEDULED → DISPUTED / CANCELLED` transitions; disputes can be resolved back to `SCHEDULED` with a future schedule and an explicit resolution note.
+- Enforces participant attribution, non-empty reasons, timezone-aware transition times, future scheduling, version increments and transition provenance.
+- Validates that the active Reservations exactly cover the accepted Agreement quantity and all reference the same tenant, Agreement, Resource, ResourceState and version.
+- Prevents Agreement cancellation/expiry/termination while a non-cancelled Transaction exists.
+- Prevents independent Reservation release/expiry while a non-cancelled Transaction holds it.
+- Transaction cancellation releases its active Reservation set atomically; the Transaction API is wired in PR #30.

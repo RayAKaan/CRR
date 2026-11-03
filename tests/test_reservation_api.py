@@ -23,6 +23,7 @@ from crr.models import (
 from crr.offer_model import Offer
 from crr.opportunity_model import Opportunity
 from crr.reservation_model import Reservation
+from crr.transaction_model import Transaction, transaction_reservations
 
 NOW = datetime(2026, 11, 3, 0, tzinfo=UTC)
 
@@ -401,3 +402,56 @@ def test_reserved_resource_state_cannot_be_physically_transitioned():
     )
     assert transition.status_code == 409
     assert transition.json()["error"]["code"] == "RESOURCE_STATE_RESERVED"
+
+
+def test_active_transaction_locks_linked_reservation_from_release():
+    client, token, engine = reservation_fixture()
+    created = client.post(
+        "/v1/reservations",
+        json=payload("10.250"),
+        headers=auth(token, "reservation-for-transaction"),
+    )
+    assert created.status_code == 201, created.text
+    reservation_id = created.json()["data"]["id"]
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    with factory.begin() as session:
+        session.add(
+            Transaction(
+                id="txn_a",
+                organization_id="org_a",
+                agreement_id="agr_a",
+                opportunity_id="opp_a",
+                route_candidate_id="route_a",
+                resource_id="res_a",
+                resource_state_id="rst_a",
+                resource_version=1,
+                proposer_actor_id="act_seller",
+                recipient_actor_id="act_buyer",
+                quantity_value=Decimal("10.250"),
+                quantity_unit="t",
+                unit_registry_version="CRR-UNITS-0.1",
+                price=Decimal("125.50"),
+                currency="SAR",
+                terms_snapshot='{"quantity":{"value":"10.250","unit":"t"}}',
+                status="AGREED",
+                version=1,
+                created_by="act_buyer",
+                created_at=NOW,
+                updated_at=NOW,
+                provenance={"source_type": "TEST"},
+            )
+        )
+        session.execute(
+            transaction_reservations.insert().values(
+                organization_id="org_a",
+                transaction_id="txn_a",
+                reservation_id=reservation_id,
+            )
+        )
+    blocked = client.patch(
+        f"/v1/reservations/{reservation_id}",
+        json={"status": "RELEASED"},
+        headers=auth(token, "reservation-release-blocked") | {"If-Match": '"version-1"'},
+    )
+    assert blocked.status_code == 409
+    assert blocked.json()["error"]["code"] == "RESERVATION_BOUND_TO_TRANSACTION"
