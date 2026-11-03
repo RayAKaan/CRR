@@ -131,7 +131,9 @@ class ExecutionExceptionResolution:
     provenance: dict[str, str]
 
     def __post_init__(self) -> None:
-        if not all((self.id, self.organization_id, self.execution_id, self.exception_id, self.actor_id)):
+        if not all(
+            (self.id, self.organization_id, self.execution_id, self.exception_id, self.actor_id)
+        ):
             raise DomainError("Exception resolution identity and actor are required.")
         if not self.reason.strip() or not self.provenance:
             raise DomainError("Exception resolution reason and provenance are required.")
