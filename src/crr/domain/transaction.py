@@ -105,7 +105,6 @@ class Transaction:
             raise TenantBoundaryError("Transaction belongs to another organization.")
 
 
-
     def schedule(
         self,
         *,
@@ -262,8 +261,7 @@ def validate_transaction_reservation_coverage(
             raise DomainError("Every Transaction Reservation must be active and unexpired.")
         if (
             reservation.quantity.unit != agreed_quantity.unit
-            or reservation.quantity.unit_registry_version
-            != agreed_quantity.unit_registry_version
+            or reservation.quantity.unit_registry_version != agreed_quantity.unit_registry_version
         ):
             raise DomainError("Transaction Reservations must use the agreed canonical unit.")
         total += reservation.quantity.value
