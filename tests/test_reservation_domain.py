@@ -5,7 +5,12 @@ import pytest
 
 from crr.domain.errors import DomainError, TenantBoundaryError
 from crr.domain.quantity import Quantity
-from crr.domain.reservation import Reservation, ReservationStatus, validate_reservation_capacity
+from crr.domain.reservation import (
+    Reservation,
+    ReservationStatus,
+    active_reserved_quantity,
+    validate_reservation_capacity,
+)
 
 NOW = datetime(2026, 11, 3, 12, tzinfo=UTC)
 
@@ -81,4 +86,66 @@ def test_capacity_rejects_quantity_above_agreement_or_incompatible_units():
             agreement_quantity=quantity("10", "kg"),
             state_quantity=quantity("20"),
             already_reserved=quantity("0"),
+        )
+
+
+def test_release_is_versioned_attributed_and_terminal():
+    reservation = make_reservation()
+    released = reservation.release(actor_id="act_2", at=NOW + timedelta(hours=1))
+    assert released.status is ReservationStatus.RELEASED
+    assert released.version == reservation.version + 1
+    assert released.provenance["last_transition_actor_id"] == "act_2"
+    with pytest.raises(DomainError):
+        released.release(actor_id="act_2", at=NOW + timedelta(hours=2))
+
+
+def test_expiry_requires_expiry_instant_and_is_terminal():
+    reservation = make_reservation()
+    with pytest.raises(DomainError):
+        reservation.expire(at=NOW + timedelta(hours=1))
+    expired = reservation.expire(at=reservation.expires_at)
+    assert expired.status is ReservationStatus.EXPIRED
+    assert expired.version == 2
+    with pytest.raises(DomainError):
+        expired.expire(at=reservation.expires_at + timedelta(seconds=1))
+
+
+def test_active_allocation_ignores_released_and_expired_reservations():
+    active = make_reservation(quantity=quantity("3"))
+    released = make_reservation(
+        id="rsv_2",
+        quantity=quantity("5"),
+        status=ReservationStatus.RELEASED,
+    )
+    expired = make_reservation(
+        id="rsv_3",
+        quantity=quantity("7"),
+        created_at=NOW - timedelta(days=2),
+        updated_at=NOW - timedelta(days=2),
+        expires_at=NOW - timedelta(days=1),
+    )
+    total = active_reserved_quantity(
+        [active, released, expired],
+        now=NOW,
+        unit="t",
+        unit_registry_version="CRR-UNITS-0.1",
+    )
+    assert total.value == Decimal("3")
+
+
+def test_active_allocation_rejects_incompatible_unit_and_naive_clock():
+    incompatible = make_reservation(quantity=quantity("2", "kg"))
+    with pytest.raises(DomainError):
+        active_reserved_quantity(
+            [incompatible],
+            now=NOW,
+            unit="t",
+            unit_registry_version="CRR-UNITS-0.1",
+        )
+    with pytest.raises(DomainError):
+        active_reserved_quantity(
+            [],
+            now=NOW.replace(tzinfo=None),
+            unit="t",
+            unit_registry_version="CRR-UNITS-0.1",
         )

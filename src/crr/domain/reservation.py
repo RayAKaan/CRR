@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
@@ -64,6 +64,72 @@ class Reservation:
     def validate_tenant(self, organization_id: str) -> None:
         if self.organization_id != organization_id:
             raise TenantBoundaryError("Reservation belongs to another organization.")
+
+    def release(self, *, actor_id: str, at: datetime) -> Reservation:
+        if self.status is not ReservationStatus.ACTIVE:
+            raise DomainError("Only an active Reservation can be released.")
+        if not actor_id:
+            raise DomainError("Reservation release requires an attributed actor.")
+        if at.tzinfo is None or at.utcoffset() is None:
+            raise DomainError("Reservation release time must be timezone-aware.")
+        if at < self.created_at:
+            raise DomainError("Reservation cannot be released before it was created.")
+        return replace(
+            self,
+            status=ReservationStatus.RELEASED,
+            version=self.version + 1,
+            updated_at=at,
+            provenance={
+                **self.provenance,
+                "last_transition": "RELEASED",
+                "last_transition_actor_id": actor_id,
+                "last_transition_at": at.isoformat(),
+            },
+        )
+
+    def expire(self, *, at: datetime) -> Reservation:
+        if self.status is not ReservationStatus.ACTIVE:
+            raise DomainError("Only an active Reservation can expire.")
+        if at.tzinfo is None or at.utcoffset() is None:
+            raise DomainError("Reservation expiry time must be timezone-aware.")
+        if at < self.expires_at:
+            raise DomainError("Reservation cannot expire before its expiry instant.")
+        return replace(
+            self,
+            status=ReservationStatus.EXPIRED,
+            version=self.version + 1,
+            updated_at=at,
+            provenance={
+                **self.provenance,
+                "last_transition": "EXPIRED",
+                "last_transition_at": at.isoformat(),
+            },
+        )
+
+
+def active_reserved_quantity(
+    reservations: list[Reservation] | tuple[Reservation, ...],
+    *,
+    now: datetime,
+    unit: str,
+    unit_registry_version: str,
+) -> Quantity:
+    """Sum only currently active, unexpired allocations in an exact canonical unit."""
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise DomainError("Reservation capacity checks require timezone-aware time.")
+    total = Decimal("0")
+    for reservation in reservations:
+        if reservation.status is not ReservationStatus.ACTIVE:
+            continue
+        if reservation.expires_at <= now or reservation.created_at > now:
+            continue
+        if (
+            reservation.quantity.unit != unit
+            or reservation.quantity.unit_registry_version != unit_registry_version
+        ):
+            raise DomainError("Active reservations contain incompatible canonical units.")
+        total += reservation.quantity.value
+    return Quantity(total, unit, unit_registry_version)
 
 
 def validate_reservation_capacity(
