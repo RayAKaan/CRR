@@ -25,6 +25,7 @@
 | Opportunity | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Offer | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Agreement | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Reservation | ✓ | ✓ | ✓ | — | ✓ | ✓ | ✓ |
 | Transaction | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Execution | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Evidence | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -55,6 +56,7 @@
 | Staleness | Material commitments revalidate stale routes. |
 | Economics | Results are reproducible from recorded inputs and calculation version. |
 | Commercial state | Opportunity/offer/agreement/transaction are distinct. |
+| Reservation | Temporary allocation is separate from physical state and execution. |
 | Execution | Actual operations are distinct from plans and commercial commitments. |
 | Evidence | Evidence supports claims; it is not itself physical truth. |
 | Verification | Verification is authorized, evidence-backed, and auditable. |
