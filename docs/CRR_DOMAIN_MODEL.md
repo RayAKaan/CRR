@@ -594,21 +594,22 @@ An Agreement is not execution evidence.
 
 # 19. Transaction
 
-Transaction connects the accepted commercial arrangement to physical resource movement and execution.
+Transaction binds an accepted Agreement to the Reservations that allocate the agreed physical quantity. It is the canonical commercial commitment record from which later execution work can proceed.
 
-It may contain:
+The Phase 5 reference implementation records:
 
-- agreement;
-- opportunity;
-- resource references;
-- route;
-- quantity;
-- price;
-- obligations;
-- execution reference;
-- evidence requirements;
-- economic model;
-- status.
+- the source Agreement and Opportunity;
+- the accepted route candidate;
+- the Resource and immutable ResourceState version;
+- the Agreement's two commercial parties;
+- exact quantity, unit, unit-registry version, price and currency;
+- an immutable snapshot of accepted commercial terms;
+- the complete set of Reservations covering the agreed quantity;
+- lifecycle status, version, actor attribution and provenance.
+
+One Agreement creates at most one Transaction in this initial reference implementation. Transaction creation requires one or more active, unexpired Reservations whose exact aggregate quantity equals the accepted Agreement quantity. Every Reservation must belong to the same Agreement, organization, Resource, ResourceState and ResourceState version.
+
+A Transaction does not mutate ResourceState, transfer ownership or custody, prove dispatch/delivery, settle payment, or establish execution or verification. Those facts belong to later Execution, Evidence and Verification objects.
 
 Reference lifecycle:
 
@@ -621,6 +622,9 @@ DISCOVERED
  → EXECUTING
  → COMPLETED
  → VERIFIED
+
+AGREED / SCHEDULED → DISPUTED → SCHEDULED
+AGREED / SCHEDULED / DISPUTED → CANCELLED
 ```
 
 `COMPLETED` means the protocol considers the transaction execution complete. `VERIFIED` means the required evidence has been accepted.
