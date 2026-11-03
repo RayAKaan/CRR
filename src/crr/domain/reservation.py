@@ -76,8 +76,7 @@ def validate_reservation_capacity(
     """Reject incompatible units and allocations exceeding either commercial or physical bounds."""
     quantities = (agreement_quantity, state_quantity, already_reserved)
     if any(
-        (item.unit, item.unit_registry_version)
-        != (requested.unit, requested.unit_registry_version)
+        (item.unit, item.unit_registry_version) != (requested.unit, requested.unit_registry_version)
         for item in quantities
     ):
         raise DomainError("Reservation quantities must use the same canonical unit and registry.")
