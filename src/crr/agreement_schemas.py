@@ -12,4 +12,4 @@ class AgreementCreate(BaseModel):
 class AgreementLifecycleInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    status: str = Field(pattern="^(CANCELLED|TERMINATED)$")
+    status: str = Field(pattern="^(CANCELLED|TERMINATED|EXPIRED)$")
