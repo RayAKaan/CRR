@@ -73,6 +73,13 @@ def reservation_fixture(state_quantity: str = "20.000"):
                     "transactions:read",
                     "transactions:write",
                     "transactions:resolve",
+                    "executions:read",
+                    "executions:write",
+                    "executions:plan",
+                    "execution:operate",
+                    "execution:correct",
+                    "executions:exceptions:write",
+                    "executions:exceptions:resolve",
                 ],
                 revoked=False,
                 created_at=NOW,
@@ -680,3 +687,229 @@ def test_transaction_lifecycle_resolves_disputes_and_cancels_allocations_atomica
     )
     assert blocked_new_reservation.status_code == 409
     assert blocked_new_reservation.json()["error"]["code"] == "AGREEMENT_ALREADY_TRANSACTED"
+
+
+def create_scheduled_transaction(client, token, key_prefix="execution"):
+    reservation_ids = create_full_transaction_reservations(client, token)
+    created = client.post(
+        "/v1/transactions",
+        json={"agreement_id": "agr_a", "reservation_ids": reservation_ids},
+        headers=auth(token, f"{key_prefix}-transaction"),
+    )
+    assert created.status_code == 201, created.text
+    transaction_id = created.json()["data"]["id"]
+    scheduled = client.patch(
+        f"/v1/transactions/{transaction_id}",
+        json={
+            "status": "SCHEDULED",
+            "scheduled_for": (datetime.now(UTC) + timedelta(days=2)).isoformat(),
+        },
+        headers=auth(token, f"{key_prefix}-schedule") | {"If-Match": '"version-1"'},
+    )
+    assert scheduled.status_code == 200, scheduled.text
+    return transaction_id
+
+
+def test_execution_creation_and_reported_operations_are_idempotent_and_audited():
+    client, token, engine = reservation_fixture()
+    transaction_id = create_scheduled_transaction(client, token)
+    body = {"transaction_id": transaction_id}
+    headers = auth(token, "execution-create")
+    created = client.post("/v1/executions", json=body, headers=headers)
+    replay = client.post("/v1/executions", json=body, headers=headers)
+    assert created.status_code == 201, created.text
+    assert replay.status_code == 200
+    data = created.json()["data"]
+    execution_id = data["id"]
+    assert data["status"] == "PLANNED"
+    assert data["resource_state_id"] == "rst_a"
+    assert data["quantity"]["value"] == "10.250"
+    assert created.headers["etag"] == '"version-1"'
+
+    planned_for = datetime.now(UTC) + timedelta(days=1)
+    planned = client.post(
+        f"/v1/executions/{execution_id}/operations/planned",
+        json={"operation_type": "PICKUP", "planned_for": planned_for.isoformat()},
+        headers=auth(token, "execution-plan") | {"If-Match": '"version-1"'},
+    )
+    assert planned.status_code == 201, planned.text
+    plan = planned.json()["data"]["operations"][0]
+    assert plan["mode"] == "PLANNED"
+    assert plan["occurred_at"] is None
+
+    occurred_at = datetime.now(UTC) + timedelta(minutes=1)
+    reported_body = {
+        "planned_operation_id": plan["id"],
+        "occurred_at": occurred_at.isoformat(),
+        "quantity_value": "4.000",
+        "quantity_unit": "t",
+        "unit_registry_version": "CRR-UNITS-0.1",
+    }
+    reported_headers = auth(token, "execution-report") | {"If-Match": '"version-2"'}
+    reported = client.post(
+        f"/v1/executions/{execution_id}/operations/reported",
+        json=reported_body,
+        headers=reported_headers,
+    )
+    replayed_report = client.post(
+        f"/v1/executions/{execution_id}/operations/reported",
+        json=reported_body,
+        headers=reported_headers,
+    )
+    assert reported.status_code == 201, reported.text
+    assert replayed_report.status_code == 200
+    detail = client.get(f"/v1/executions/{execution_id}", headers=auth(token))
+    collection = client.get("/v1/executions", headers=auth(token))
+    assert detail.status_code == 200
+    assert collection.status_code == 200
+    result = detail.json()["data"]
+    assert result["status"] == "IN_PROGRESS"
+    assert len(result["operations"]) == 2
+    assert result["operations"][1]["mode"] == "REPORTED"
+    assert result["operations"][1]["quantity"]["value"] == "4.000"
+
+    with engine.connect() as connection:
+        state = connection.execute(select(ResourceState).where(ResourceState.id == "rst_a")).one()
+        events = connection.execute(
+            select(OutboxEvent).where(OutboxEvent.aggregate_id == execution_id)
+        ).all()
+    assert state.quantity_value == Decimal("20.000")
+    assert state.resource_version == 1
+    assert len(events) == 3
+    assert {event.event_type for event in events} == {
+        "execution.created",
+        "execution.operation.planned",
+        "execution.operation.reported",
+    }
+
+
+def test_execution_rejects_unplanned_duplicate_out_of_order_and_stale_reports():
+    client, token, _ = reservation_fixture()
+    transaction_id = create_scheduled_transaction(client, token, "execution-validation")
+    created = client.post(
+        "/v1/executions",
+        json={"transaction_id": transaction_id},
+        headers=auth(token, "execution-validation-create"),
+    )
+    execution_id = created.json()["data"]["id"]
+    no_plan = client.post(
+        f"/v1/executions/{execution_id}/operations/reported",
+        json={
+            "planned_operation_id": "missing",
+            "occurred_at": datetime.now(UTC).isoformat(),
+        },
+        headers=auth(token, "execution-no-plan") | {"If-Match": '"version-1"'},
+    )
+    assert no_plan.status_code == 404
+
+    shipment_plan = client.post(
+        f"/v1/executions/{execution_id}/operations/planned",
+        json={
+            "operation_type": "SHIPMENT",
+            "planned_for": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
+        },
+        headers=auth(token, "execution-shipment-plan") | {"If-Match": '"version-1"'},
+    )
+    assert shipment_plan.status_code == 201
+    plan_id = shipment_plan.json()["data"]["operations"][0]["id"]
+    shipment = client.post(
+        f"/v1/executions/{execution_id}/operations/reported",
+        json={
+            "planned_operation_id": plan_id,
+            "occurred_at": datetime.now(UTC).isoformat(),
+        },
+        headers=auth(token, "execution-shipment-report") | {"If-Match": '"version-2"'},
+    )
+    assert shipment.status_code == 409
+    assert shipment.json()["error"]["code"] == "DOMAIN_VALIDATION_FAILED"
+
+    pickup_plan = client.post(
+        f"/v1/executions/{execution_id}/operations/planned",
+        json={
+            "operation_type": "PICKUP",
+            "planned_for": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
+        },
+        headers=auth(token, "execution-pickup-plan") | {"If-Match": '"version-2"'},
+    )
+    assert pickup_plan.status_code == 201
+    stale = client.post(
+        f"/v1/executions/{execution_id}/operations/reported",
+        json={
+            "planned_operation_id": pickup_plan.json()["data"]["operations"][-1]["id"],
+            "occurred_at": datetime.now(UTC).isoformat(),
+        },
+        headers=auth(token, "execution-stale-report") | {"If-Match": '"version-1"'},
+    )
+    assert stale.status_code == 409
+    assert stale.json()["error"]["code"] == "STALE_VERSION"
+
+
+def test_execution_exceptions_and_corrections_are_append_only_and_authorized():
+    client, token, _ = reservation_fixture()
+    transaction_id = create_scheduled_transaction(client, token, "execution-history")
+    created = client.post(
+        "/v1/executions",
+        json={"transaction_id": transaction_id},
+        headers=auth(token, "execution-history-create"),
+    )
+    execution_id = created.json()["data"]["id"]
+    plan = client.post(
+        f"/v1/executions/{execution_id}/operations/planned",
+        json={
+            "operation_type": "PICKUP",
+            "planned_for": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
+        },
+        headers=auth(token, "execution-history-plan") | {"If-Match": '"version-1"'},
+    )
+    plan_id = plan.json()["data"]["operations"][0]["id"]
+    actual = client.post(
+        f"/v1/executions/{execution_id}/operations/reported",
+        json={
+            "planned_operation_id": plan_id,
+            "occurred_at": datetime.now(UTC).isoformat(),
+            "quantity_value": "3.000",
+            "quantity_unit": "t",
+            "unit_registry_version": "CRR-UNITS-0.1",
+        },
+        headers=auth(token, "execution-history-actual") | {"If-Match": '"version-2"'},
+    )
+    assert actual.status_code == 201, actual.text
+    original = actual.json()["data"]["operations"][-1]
+
+    exception = client.post(
+        f"/v1/executions/{execution_id}/exceptions",
+        json={"code": "VEHICLE_DELAY", "reason": "Vehicle delayed at source"},
+        headers=auth(token, "execution-history-exception") | {"If-Match": '"version-3"'},
+    )
+    assert exception.status_code == 201, exception.text
+    exception_id = exception.json()["data"]["exceptions"][0]["id"]
+    assert exception.json()["data"]["status"] == "EXCEPTION"
+
+    resolved = client.post(
+        f"/v1/executions/{execution_id}/exceptions/{exception_id}/resolution",
+        json={"reason": "Replacement vehicle assigned"},
+        headers=auth(token, "execution-history-resolution") | {"If-Match": '"version-4"'},
+    )
+    assert resolved.status_code == 201, resolved.text
+    assert resolved.json()["data"]["status"] == "IN_PROGRESS"
+
+    correction = client.post(
+        f"/v1/executions/{execution_id}/corrections",
+        json={
+            "original_operation_id": original["id"],
+            "occurred_at": (datetime.now(UTC) + timedelta(minutes=2)).isoformat(),
+            "reason": "Corrected measured quantity from signed scale ticket",
+            "quantity_value": "3.250",
+            "quantity_unit": "t",
+            "unit_registry_version": "CRR-UNITS-0.1",
+        },
+        headers=auth(token, "execution-history-correction") | {"If-Match": '"version-5"'},
+    )
+    assert correction.status_code == 201, correction.text
+    operations = correction.json()["data"]["operations"]
+    assert len(operations) == 3
+    assert operations[1]["id"] == original["id"]
+    assert operations[2]["supersedes_operation_id"] == original["id"]
+    assert operations[2]["correction_reason"] == (
+        "Corrected measured quantity from signed scale ticket"
+    )

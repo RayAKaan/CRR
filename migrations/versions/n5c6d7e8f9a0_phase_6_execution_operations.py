@@ -102,6 +102,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("organization_id", "id"),
         sa.UniqueConstraint("organization_id", "execution_id", "id"),
         sa.UniqueConstraint("organization_id", "execution_id", "sequence"),
+        sa.UniqueConstraint("organization_id", "supersedes_operation_id"),
     )
     op.create_index(
         "ix_execution_operations_org_execution",

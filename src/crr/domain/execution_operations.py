@@ -168,6 +168,13 @@ def validate_reported_operation(
         raise DomainError("Reported operation cannot precede its plan.")
     if any(item.sequence == reported_operation.sequence for item in prior_reported_operations):
         raise DomainError("Execution operation sequence has already been reported.")
+    if any(item.planned_operation_id == planned_operation.id for item in prior_reported_operations):
+        raise DomainError("The planned milestone has already been reported.")
+    if (
+        reported_operation.quantity is not None
+        and reported_operation.quantity.value > execution.quantity.value
+    ):
+        raise DomainError("A reported quantity cannot exceed the Transaction quantity.")
     reported_types = {item.operation_type for item in prior_reported_operations}
     dependencies: dict[ExecutionOperationType, frozenset[ExecutionOperationType]] = {
         ExecutionOperationType.PICKUP: frozenset(),
@@ -195,6 +202,15 @@ def validate_reported_operation(
         raise DomainError(
             f"{reported_operation.operation_type.value} has no eligible reported predecessor."
         )
+    predecessors = [
+        item
+        for item in prior_reported_operations
+        if item.operation_type in required and item.occurred_at is not None
+    ]
+    if predecessors and reported_operation.occurred_at < max(
+        item.occurred_at for item in predecessors if item.occurred_at is not None
+    ):
+        raise DomainError("Reported operation time precedes its required predecessor.")
 
 
 def validate_correction(
@@ -206,6 +222,8 @@ def validate_correction(
     """Require a separately authorized compensating record; never rewrite original history."""
     if "execution:correct" not in authorization_scopes and "admin:*" not in authorization_scopes:
         raise DomainError("An explicit execution:correct authorization is required.")
+    if original.mode is not OperationMode.REPORTED:
+        raise DomainError("Only a reported operation can be corrected.")
     if correction.supersedes_operation_id != original.id:
         raise DomainError("Correction must reference the exact operation it supersedes.")
     if correction.operation_type is not original.operation_type:
