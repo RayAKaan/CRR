@@ -6,10 +6,10 @@ It is not a reservation, transaction, payment, or execution record.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
-import json
 
 from crr.domain.errors import DomainError, TenantBoundaryError
 from crr.domain.offer import Offer, OfferStatus
@@ -131,6 +131,9 @@ class Agreement:
             raise DomainError("Agreement cancellation requires a participating actor.")
         if at.tzinfo is None or at.utcoffset() is None:
             raise DomainError("Agreement cancellation time must be timezone-aware.")
-        from dataclasses import replace
-
-        return replace(self, status=AgreementStatus.CANCELLED, version=self.version + 1, updated_at=at)
+        return replace(
+            self,
+            status=AgreementStatus.CANCELLED,
+            version=self.version + 1,
+            updated_at=at,
+        )
