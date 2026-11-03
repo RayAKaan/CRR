@@ -26,8 +26,8 @@ Create the canonical commercial Transaction that binds one accepted Agreement to
 
 | PR | Scope | State |
 |---|---|---|
-| #28 | Transaction domain contract, persistence model, Agreement/Opportunity/Resource/Reservation references and migration | In progress |
-| #29 | Transaction lifecycle, commercial obligation validation and cross-object lifecycle safeguards | Planned |
+| #28 | Transaction domain contract, persistence model, Agreement/Opportunity/Resource/Reservation references and migration | Merged |
+| #29 | Transaction lifecycle, commercial obligation validation and cross-object lifecycle safeguards | In progress |
 | #30 | Tenant-isolated Transaction API, idempotency, ETags, outbox and end-to-end integration tests | Planned |
 
 ## Lifecycle boundary
