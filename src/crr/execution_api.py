@@ -20,7 +20,6 @@ from crr.domain.execution_operations import (
     ExecutionExceptionResolution as DomainResolution,
     ExecutionOperation as DomainOperation,
     ExecutionOperationType,
-    ExecutionExceptionStatus,
     OperationMode,
     validate_correction,
     validate_reported_operation,
@@ -78,18 +77,10 @@ def _body_hash(payload: dict[str, Any]) -> str:
     return _api()._body_hash(payload)
 
 
-def _transaction_domain(item: TransactionRecord) -> DomainTransaction:
-    from crr.transaction_api import _transaction_domain
-
-    # Reuse the canonical Transaction reconstruction, including its reservation provenance.
-    return _transaction_domain_from_record(item)
-
-
-def _transaction_domain_from_record(item: TransactionRecord) -> DomainTransaction:
+def _transaction_domain(session: Session, item: TransactionRecord) -> DomainTransaction:
     from crr.transaction_api import _transaction_domain as convert
 
-    # The transaction helper requires a Session for the immutable reservation link set.
-    raise RuntimeError("Transaction conversion requires a session.")
+    return convert(session, item)
 
 
 def _execution_domain(item: ExecutionRecord) -> DomainExecution:
