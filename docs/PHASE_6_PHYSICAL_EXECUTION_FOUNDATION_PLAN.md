@@ -1,6 +1,6 @@
 # Phase 6 — Physical Execution Foundation
 
-**Status:** Implementation merged through PR #34; PR #35 closes integration, conformance and documentation  
+**Status:** COMPLETE — PRs #31–#35 merged; post-merge CI green  
 **Scope:** PRs #32–#35 (following planning PR #31)  
 **Predecessor:** Phase 5 Transaction Foundation (PR #30 must pass all required CI and merge before Phase 6 implementation is merged)  
 **Implementation base:** merged Phase 5 Transaction Foundation.
@@ -108,4 +108,13 @@ These require later, separately scoped phases. Phase 6 must leave explicit exten
 
 ## Completion definition
 
-Phase 6 is complete only when PRs #31–#35 are merged after all required checks pass, post-merge CI on `main` is green, migrations are reversible, lifecycle closure/cancellation and documented invariants are demonstrated by tests. A queued or skipped check is not a passing check.
+Phase 6 completion verified on 2026-11-03:
+
+- Planning PR #31 and implementation PRs #32–#35 are merged to `main`.
+- PR #35 merge commit: `e936e0802fb0bc4b01733349265627a39062995b`.
+- Post-merge main CI run `41611210190` passed both `test` and `postgres` jobs.
+- PR #35 branch CI passed both jobs; pytest reported 224 passed and 1 PostgreSQL-only test skipped in the SQLite test job. PostgreSQL conformance ran in the separate PostgreSQL job and passed.
+- Migration upgrade/downgrade/rebuild and model-alignment checks are included in the passing PostgreSQL job.
+- Execution lifecycle closure/cancellation, append-only corrections, exceptions, idempotency, tenant isolation, stale-version checks and unchanged ResourceState behavior are covered by domain/API tests.
+
+Phase 6 is complete within the explicitly stated scope. Reported operations remain actor-attributed operational claims, not independently verified evidence. Evidence review, verification decisions, verified ResourceState transitions, custody/title transfer, payment settlement, carrier integrations and autonomous dispatch remain deferred to later phases.
