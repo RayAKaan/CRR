@@ -919,7 +919,7 @@ The protocol should remain useful even when these participants are supplied by i
 
 # 26. Repository status
 
-This repository contains the **protocol and architecture specification foundation** plus an in-progress Phase 1 executable reference foundation. Phase 1 currently covers a narrow organization/actor/location/resource/ResourceState API. It does not yet implement routing, commercial execution, evidence verification, or a complete end-to-end transaction.
+This repository contains the protocol and architecture specification foundation and an executable reference implementation through the Phase 4C Agreement boundary. The implementation includes organization/actor/location/resource state, demand/capability/transformation, routing and feasibility, economics/optimization, Opportunity, Offer, and Agreement foundations. Agreement records recipient-attributed acceptance of an Offer and snapshots its exact commercial terms. Reservation, Transaction, physical execution, evidence, and verification remain future increments; this is not yet a complete end-to-end physical transaction system.
 
 The specification remains authoritative for implementation semantics. The current code should be judged on:
 
@@ -958,9 +958,9 @@ CRR is successful when an independent implementation team can read this reposito
 
 That is the standard this repository is intended to meet.
 
-# Phase 1 Reference Foundation
+# Running the Reference API
 
-The first executable increment covers tenant-scoped organizations and actors, locations, resources, immutable ResourceState history, authenticated REST access, optimistic concurrency, idempotency, and a transactional event outbox. It does not yet implement route discovery or commercial execution.
+The reference API now includes the Phase 1 canonical physical-state foundation, routing and feasibility, and commercial Opportunity, Offer, and Agreement boundaries. Agreement creation is accepted-Offer-only and retains an immutable terms snapshot with recipient-attributed acceptance provenance. It does not reserve resources or create Transactions, dispatches, execution records, evidence, or verified outcomes.
 
 From the repository root, install the package and start the API:
 
